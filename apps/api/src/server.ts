@@ -94,6 +94,15 @@ async function tick(){
   finally{setTimeout(tick,1000).unref();}
 }
 void tick();
+app.get('/api/public/market',async(req,res)=>{
+  const sort=req.query.sort??'harvest';
+  if(sort!=='harvest' && sort!=='price'){res.sendStatus(400);return;}
+  const offers=await db.offer.findMany({where:{open:true,remainingKg:{gt:0},batch:{published:true}},
+    orderBy:sort==='price'?[{priceVnd:'asc'},{batchId:'asc'}]:[{batch:{expectedHarvestDate:'asc'}},{batchId:'asc'}],
+    select:{batchId:true,priceVnd:true,remainingKg:true,batch:{select:{name:true,expectedHarvestDate:true,zone:{select:{pump:{select:{farm:{select:{name:true}}}}}}}}}});
+  res.set('Cache-Control','no-store').json(offers.map(o=>({code:o.batchId,name:o.batch.name,farm:o.batch.zone.pump.farm.name,
+    expectedHarvestDate:o.batch.expectedHarvestDate,priceVnd:o.priceVnd,remainingKg:o.remainingKg})));
+});
 app.get('/api/public/batches/:code',async(req,res)=>{
   const batch=await db.batch.findFirst({where:{id:req.params.code,published:true},include:{offer:true,zone:{include:{pump:{include:{farm:true}}}}}});
   if(!batch){res.sendStatus(404);return;}

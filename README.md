@@ -112,3 +112,10 @@ Hủy nhiều lần chỉ hoàn kg một lần. Danh sách phân trang 25 đơn.
 Trong trang quản lý đơn, chủ trang trại có thể **Tạm dừng nhận đơn** hoặc
 **Mở lại** từng lô. Trạng thái này không thay đổi hạn mức còn lại hoặc các
 đơn đã giữ chỗ; gửi lại đúng yêu cầu cũ vẫn trả về đơn đã đặt.
+
+### Chợ nông sản
+Mở /cho-nong-san để so sánh lô theo giá/kg và ngày thu hoạch dự kiến.
+Chợ chỉ hiển thị lô đã công bố, đang nhận đơn và còn kg. API đọc:
+GET /api/public/market?sort=price hoặc sort=harvest (mặc định).
+Chạy npm run db:setup để bổ sung lô mẫu tháng 2; seed giữ nguyên các đơn,
+giá và số lượng hiện có. Ngày thu hoạch trong dữ liệu mẫu là ngày mô phỏng.
