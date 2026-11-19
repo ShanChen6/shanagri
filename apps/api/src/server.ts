@@ -68,6 +68,16 @@ app.get('/api/farms/demo/queue',async(_,res)=>{
   res.json(await db.irrigation.findMany({where:{pump:{farmId:'demo'},status:{in:['RUNNING','PENDING']}},
     include:{zone:{select:{name:true}},pump:{select:{name:true}}},orderBy:[{pumpId:'asc'},{id:'asc'}]}));
 });
+app.get('/api/farms/demo/irrigation-history',async(req,res)=>{
+  const zoneId=req.query.zoneId;
+  if(zoneId!==undefined && typeof zoneId!=='string'){res.sendStatus(400);return;}
+  const rows=await db.irrigation.findMany({
+    where:{pump:{farmId:'demo'},status:'DONE',...(typeof zoneId==='string'?{zoneId}:{})},
+    include:{zone:{select:{name:true}},pump:{select:{name:true}}},
+    orderBy:[{finishAt:'desc'},{id:'desc'}],take:50
+  });
+  res.json(rows.map(({estimatedMl,...row})=>({...row,estimatedLiters:estimatedMl===null?null:Number(estimatedMl)/1000})));
+});
 async function tick(){
   try{
     const pumps=await db.irrigation.findMany({where:{status:{in:['RUNNING','PENDING']}},distinct:['pumpId'],select:{pumpId:true}});

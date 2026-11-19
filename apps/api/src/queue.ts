@@ -5,8 +5,10 @@ export async function lockPump(tx:Tx,id:string) {
 }
 // Caller holds the pump row lock. PostgreSQL time survives process restarts.
 export async function advance(tx:Tx,id:string) {
-  await tx.$executeRaw`UPDATE "Irrigation" SET status='DONE' WHERE "pumpId"=${id} AND status='RUNNING' AND "finishAt"<=clock_timestamp()`;
-  await tx.$executeRaw`UPDATE "Irrigation" SET status='RUNNING',"finishAt"=clock_timestamp()+interval '10 seconds'
+  await tx.$executeRaw`UPDATE "Irrigation" SET status='DONE',
+    "estimatedMl"=round(extract(epoch from ("finishAt"-"startedAt"))*"flowMlPerSecond")::bigint WHERE "pumpId"=${id} AND status='RUNNING' AND "finishAt"<=clock_timestamp()`;
+  await tx.$executeRaw`UPDATE "Irrigation" SET status='RUNNING',"startedAt"=statement_timestamp(),
+    "flowMlPerSecond"=(SELECT "flowMlPerSecond" FROM "Pump" WHERE id=${id}),"finishAt"=statement_timestamp()+interval '10 seconds'
     WHERE id=(SELECT id FROM "Irrigation" WHERE "pumpId"=${id} AND status='PENDING' ORDER BY id LIMIT 1)
     AND NOT EXISTS(SELECT 1 FROM "Irrigation" WHERE "pumpId"=${id} AND status='RUNNING')`;
 }

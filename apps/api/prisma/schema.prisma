@@ -11,6 +11,7 @@ model Farm {
   pumps Pump[]
 }
 model Pump {
+  flowMlPerSecond Int @default(100)
   irrigation Irrigation[]
   id String @id
   name String
@@ -46,6 +47,10 @@ model SimulatedDay {
 }
 
 model Irrigation {
+  startedAt DateTime? @db.Timestamptz
+  flowMlPerSecond Int?
+  estimatedMl BigInt?
+  @@index([zoneId,status,finishAt],map:"irrigation_history")
   id Int @id @default(autoincrement())
   pumpId String
   zoneId String

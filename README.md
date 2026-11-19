@@ -49,3 +49,11 @@ trùng cho vùng còn trong hàng đợi trả lại lượt hiện có. Lượt
 nguyên thứ tự sau restart; nếu lượt đang chạy đã hết hạn, worker kết thúc
 lượt đó và bắt đầu lượt kế tiếp. Đặt lại mô phỏng xóa cả hàng đợi demo.
 Thời hạn này chỉ dùng cho bơm giả lập, chưa xác nhận trạng thái van thật.
+
+### Nhật ký tưới
+Dashboard hiển thị tối đa 50 lượt hoàn tất gần nhất và cho lọc theo vùng.
+API: GET /api/farms/demo/irrigation-history?zoneId=zone-cam.
+Lưu lượng giả lập mặc định 100 mL/s được chụp lại khi bắt đầu mỗi lượt.
+Thời lượng theo lịch mô phỏng nhân với lưu lượng này cho ra thể tích ước tính;
+thời gian worker ngừng hoạt động không cộng thêm nước. Lượt hoàn tất trước
+migration không có số đo ước tính. Reset demo xóa cả lịch sử tưới.
