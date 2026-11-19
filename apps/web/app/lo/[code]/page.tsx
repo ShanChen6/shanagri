@@ -1,6 +1,7 @@
+import Order from "./order";
 import {notFound} from 'next/navigation';
 export const dynamic='force-dynamic';
-type Trace={name:string;code:string;farm:string;zone:string;startDate:string;expectedHarvestDate:string;
+type Trace={offer:{remainingKg:number;priceVnd:number;open:boolean}|null;name:string;code:string;farm:string;zone:string;startDate:string;expectedHarvestDate:string;
   irrigations:{id:number;source:string;requestDay:string;completedAt:string;estimatedLiters:number|null}[];
   history:{simulatedDate:string;moisturePct:number;needsWater:boolean}[]};
 const date=(iso:string)=>iso.slice(0,10).split('-').reverse().join('/');
@@ -13,6 +14,7 @@ export default async function BatchPage({params}:{params:Promise<{code:string}>}
   const b:Trace=await res.json();
   return <main><h1>{b.name}</h1><p>Mã lô: {b.code} · {b.farm} · {b.zone}</p>
     <p>Bắt đầu: {date(b.startDate)} · Dự kiến thu hoạch: {date(b.expectedHarvestDate)}</p>
+    {b.offer?.open && <Order code={b.code} price={b.offer.priceVnd} remaining={b.offer.remainingKg}/>}
     <h2>Nhật ký độ ẩm mô phỏng</h2><p>Dữ liệu ước tính từ kịch bản thời tiết giả lập.</p>
     {!b.history.length?<p>Chưa có ngày mô phỏng cho lô này.</p>:
     <table><thead><tr><th>Ngày</th><th>Độ ẩm ước tính</th><th>Nhu cầu tưới</th></tr></thead>

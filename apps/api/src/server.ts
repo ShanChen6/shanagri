@@ -93,7 +93,7 @@ async function tick(){
 }
 void tick();
 app.get('/api/public/batches/:code',async(req,res)=>{
-  const batch=await db.batch.findFirst({where:{id:req.params.code,published:true},include:{zone:{include:{pump:{include:{farm:true}}}}}});
+  const batch=await db.batch.findFirst({where:{id:req.params.code,published:true},include:{offer:true,zone:{include:{pump:{include:{farm:true}}}}}});
   if(!batch){res.sendStatus(404);return;}
   const history=await db.simulatedDay.findMany({where:{zoneId:batch.zoneId,scenario:batch.scenario,
     simulatedDate:{gte:batch.startDate,lte:batch.expectedHarvestDate}},orderBy:{simulatedDate:'asc'},
@@ -102,7 +102,24 @@ app.get('/api/public/batches/:code',async(req,res)=>{
     select:{id:true,source:true,requestDay:true,closedAt:true,finishAt:true,estimatedMl:true}});
   const irrigations=completed.map(r=>({id:r.id,source:r.source,requestDay:r.requestDay,completedAt:r.closedAt??r.finishAt,
     estimatedLiters:r.estimatedMl===null?null:Number(r.estimatedMl)/1000}));
-  res.json({irrigations,code:batch.id,name:batch.name,farm:batch.zone.pump.farm.name,zone:batch.zone.name,startDate:batch.startDate,
+  res.json({offer:batch.offer,irrigations,code:batch.id,name:batch.name,farm:batch.zone.pump.farm.name,zone:batch.zone.name,startDate:batch.startDate,
     expectedHarvestDate:batch.expectedHarvestDate,source:'SIMULATION',history});
+});
+app.post('/api/public/batches/:code/preorders',express.json({limit:'2kb'}),async(req,res)=>{
+  const {id,kg}=req.body??{};
+  if(typeof id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)||!Number.isSafeInteger(kg)||kg<1||kg>1000){res.sendStatus(400);return;}
+  const batchId=req.params.code;
+  const result=await db.$transaction(async tx=>{
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${id.toLowerCase()}))`;
+    const rows=await tx.$queryRaw<{priceVnd:number;remainingKg:number;open:boolean}[]>`SELECT o.* FROM "Offer" o JOIN "Batch" b ON b.id=o."batchId" WHERE b.published AND b.id=${batchId} FOR UPDATE OF o`;
+    if(!rows.length)return {status:404};
+    const prior=await tx.preorder.findUnique({where:{id}});
+    if(prior)return prior.batchId===batchId && prior.kg===kg?{status:200,order:prior}:{status:409};
+    if(!rows[0].open || rows[0].remainingKg<kg)return {status:409};
+    await tx.offer.update({where:{batchId},data:{remainingKg:{decrement:kg}}});
+    const order=await tx.preorder.create({data:{id,batchId,kg,priceVnd:rows[0].priceVnd}});
+    return {status:201,order};
+  });
+  res.status(result.status).json(result.order??{error:'Không thể giữ số lượng yêu cầu'});
 });
 app.listen(Number(process.env.API_PORT ?? 4000));

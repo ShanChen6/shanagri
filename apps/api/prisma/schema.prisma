@@ -81,6 +81,7 @@ model VirtualReading {
 }
 
 model Batch {
+  offer Offer?
   irrigation Irrigation[]
   id String @id
   zoneId String
@@ -90,4 +91,21 @@ model Batch {
   startDate DateTime @db.Date
   expectedHarvestDate DateTime @db.Date
   published Boolean @default(false)
+}
+
+model Offer {
+  batchId String @id
+  batch Batch @relation(fields:[batchId],references:[id])
+  remainingKg Int
+  priceVnd Int
+  open Boolean @default(true)
+  orders Preorder[]
+}
+model Preorder {
+  id String @id @db.Uuid
+  batchId String
+  offer Offer @relation(fields:[batchId],references:[batchId])
+  kg Int
+  priceVnd Int
+  createdAt DateTime @default(now()) @db.Timestamptz
 }

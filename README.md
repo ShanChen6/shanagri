@@ -94,3 +94,10 @@ gần nhất của vùng (ngày đầu nếu chưa chạy). Nếu không có lô
 lô khớp, lượt vẫn chạy nhưng không công bố dưới bất kỳ lô nào. Yêu cầu
 trùng không thay đổi liên kết ban đầu; dữ liệu cũ không được gán hồi tố.
 Trang lô chỉ hiển thị lượt DONE và để trống ước tính nếu thiếu dữ liệu.
+
+### Đặt trước thử nghiệm
+Sau db:setup, lô CAM-2026-01 có 100 kg để giữ chỗ, 35.000 đồng/kg. Trang
+truy xuất cho đặt số kg nguyên, trả mã đơn mẫu; không thu tiền, không giao
+hàng. POST /api/public/batches/:code/preorders nhận {id,kg}; id là UUID v4
+cho mỗi ý định đặt. Gửi lại nguyên yêu cầu không trừ thêm hạn mức. Đơn lưu
+đơn giá tại lúc đặt. Seed lại hoặc reset mô phỏng không xóa đơn đã giữ.
