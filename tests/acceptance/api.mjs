@@ -85,6 +85,20 @@ try{
  assert.equal(+(await db.preorder.findUnique({where:{id:verified.id}})).createdAt,+original.createdAt);
  assert.equal((await admin('/'+verified.id+'/confirm','POST')).status,204);
  assert.equal((await call('public/hold/cancel','POST',{},bearer)).status,202);
- assert.equal(await getStock(),initial-2);assert.equal((await admin('/'+verified.id+'/cancel','POST')).status,204);assert.equal(await getStock(),initial);
+ assert.equal(await getStock(),initial-2);assert.equal((await admin('/'+verified.id+'/approve-cancel','POST')).status,204);assert.equal(await getStock(),initial);
+ assert.equal((await admin('/'+verified.id+'/approve-cancel','POST')).status,204);
+ assert.equal((await admin('/'+verified.id+'/decline-cancel','POST')).status,409);
+ assert.equal(await getStock(),initial);
+ const declined=request(3);assert.equal((await buy(declined)).status,201);
+ const otp2=await(await fetch('http://127.0.0.1:4599/'+declined.phone.replace(/^0/,'+84'),{headers:{authorization:'Bearer '+process.env.SMS_WEBHOOK_TOKEN}})).text();
+ const secret='Bearer '+declined.lookupToken;
+ assert.equal((await call('public/hold/verify','POST',{code:otp2},secret)).status,204);
+ assert.equal((await admin('/'+declined.id+'/confirm','POST')).status,204);
+ assert.equal((await call('public/hold/cancel','POST',{},secret)).status,202);
+ assert.equal((await admin('/'+declined.id+'/decline-cancel','POST')).status,204);
+ assert.equal((await admin('/'+declined.id+'/approve-cancel','POST')).status,409);
+ const receipt=await read(await call('public/order-lookup','GET',undefined,secret));
+ assert.deepEqual([receipt.status,receipt.cancelDecision,await getStock()],['CONFIRMED','DECLINED',initial-3]);
+ assert.equal((await admin('/'+declined.id+'/cancel','POST')).status,204);assert.equal(await getStock(),initial);
  console.log('PASS: verified FIFO timestamp, phone limit, expiry/refund once, and cancellation approval');
 }finally{await db.$disconnect();}

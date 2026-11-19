@@ -16,7 +16,7 @@ export function ownerOrders(db:PrismaClient){
   router.get('/',async(req,res)=>{
     const page=Number(req.query.page??1);
     if(!Number.isInteger(page)||page<1||page>100000){res.sendStatus(400);return;}
-    const rows=await db.preorder.findMany({where:{...scope,...(typeof req.query.batch==='string'&&req.query.batch?{batchId:req.query.batch,status:{in:['PENDING','CONFIRMED','HOLD']}}:{})},orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*25,take:26,select:{id:true,batchId:true,kg:true,priceVnd:true,status:true,cancelRequested:true,createdAt:true}});
+    const rows=await db.preorder.findMany({where:{...scope,...(typeof req.query.batch==='string'&&req.query.batch?{batchId:req.query.batch,status:{in:['PENDING','CONFIRMED','HOLD']}}:{})},orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*25,take:26,select:{id:true,batchId:true,kg:true,priceVnd:true,status:true,cancelRequested:true,cancelDecision:true,createdAt:true}});
     const offers=await db.offer.findMany({where:{batch:{zone:{pump:{farmId:'demo'}}}},orderBy:{batchId:'asc'},
       select:{actualKg:true,harvestDate:true,batchId:true,open:true,closesAt:true,totalKg:true,remainingKg:true,priceVnd:true}});
     const zones=await db.zone.findMany({where:{pump:{farmId:'demo'}},select:{id:true,name:true},orderBy:{name:'asc'}});
@@ -27,7 +27,7 @@ export function ownerOrders(db:PrismaClient){
   router.get('/offers/:code/allocation-preview',async(req,res)=>{
     const offer=await db.offer.findFirst({where:{batchId:req.params.code,batch:{zone:{pump:{farmId:'demo'}}}},
       select:{allocatedAt:true,batchId:true,actualKg:true,orders:{where:{status:{in:['CONFIRMED','PENDING']}},
-        orderBy:[{createdAt:'asc'},{id:'asc'}],select:{allocatedKg:true,id:true,kg:true,createdAt:true,status:true}}}});
+        orderBy:[{createdAt:'asc'},{id:'asc'}],select:{cancelRequested:true,allocatedKg:true,id:true,kg:true,createdAt:true,status:true}}}});
     if(!offer){res.sendStatus(404);return;}
     if(offer.actualKg===null){res.status(409).json({error:'Lô chưa chốt thu hoạch.'});return;}
     let remainingKg=offer.actualKg;
@@ -52,7 +52,7 @@ export function ownerOrders(db:PrismaClient){
       if(!o)return 404;
       if(o.actualKg===null||o.allocatedAt)return 409;
       const orders=await tx.preorder.findMany({where:{batchId:code,status:{in:['CONFIRMED','PENDING']}},orderBy:[{createdAt:'asc'},{id:'asc'}]});
-      if(version(code,o.actualKg,orders)!==seen||orders.some(x=>x.status==='PENDING'))return 409;
+      if(version(code,o.actualKg,orders)!==seen||orders.some(x=>x.status==='PENDING'||x.cancelRequested))return 409;
       const byId=new Map<string,number>(items.map(x=>[x.id,x.kg]));
       if(!orders.length||items.length!==orders.length||byId.size!==orders.length)return 400;
       let available=o.actualKg;
@@ -151,13 +151,24 @@ export function ownerOrders(db:PrismaClient){
   });
   router.post('/:id/:action',async(req,res)=>{
     const {id,action}=req.params;
-    if(!/^[a-f\d]{8}(-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(id)||!['confirm','cancel'].includes(action)){res.sendStatus(400);return;}
+    if(!/^[a-f\d]{8}(-[a-f\d]{4}){3}-[a-f\d]{12}$/i.test(id)||!['confirm','cancel','approve-cancel','decline-cancel'].includes(action)){res.sendStatus(400);return;}
     const status=action==='confirm'?'CONFIRMED':'CANCELLED';
     const result=await db.$transaction(async tx=>{
       // Serialize retries and competing owner decisions for this order.
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${id.toLowerCase()}))`;
       const o=await tx.preorder.findFirst({where:{id,...scope}});
       if(!o)return 404;
+      if(action==='approve-cancel'||action==='decline-cancel'){
+        const decision=action==='approve-cancel'?'APPROVED':'DECLINED';
+        if(o.cancelDecision)return o.cancelDecision===decision?204:409;
+        if(!o.cancelRequested||o.status!=='CONFIRMED')return 409;
+        const [offer]=await tx.$queryRaw<{allocatedAt:Date|null}[]>`SELECT "allocatedAt" FROM "Offer" WHERE "batchId"=${o.batchId} FOR UPDATE`;
+        if(offer.allocatedAt)return 409;
+        await tx.preorder.update({where:{id},data:{cancelDecision:decision,cancelRequested:false,status:decision==='APPROVED'?'CANCELLED':'CONFIRMED'}});
+        if(decision==='APPROVED')await tx.offer.update({where:{batchId:o.batchId},data:{remainingKg:{increment:o.kg}}});
+        return 204;
+      }
+      if(action==='cancel'&&o.cancelRequested)return 409;
       if(o.status===status)return 204;
       const [offer]=await tx.$queryRaw<{allocatedAt:Date|null}[]>`SELECT "allocatedAt" FROM "Offer" WHERE "batchId"=${o.batchId} FOR UPDATE`;
       if(offer.allocatedAt||['CANCELLED','EXPIRED'].includes(o.status)||(o.status==='HOLD'&&status==='CONFIRMED'))return 409;

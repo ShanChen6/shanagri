@@ -207,3 +207,8 @@ như trong workflow. Không triển khai hộp thư kiểm thử lên môi trư�
 Mỗi 10 phút toàn hệ thống nhận tối đa 60 lượt giữ chỗ mới cần SMS. Nếu
 trang trại còn giữ chỗ chưa xác minh, hãy đợi khách xác minh, hủy hoặc hết
 hạn trước khi chốt thu hoạch. Kiểm thử không chứng minh SMS đã tới điện thoại thật.
+
+ Với đơn đã xác nhận, chủ trại chọn **Duyệt hủy** (hoàn kg đúng một lần)
+ hoặc **Từ chối hủy** (giữ nguyên đơn và thứ tự FIFO). Khách xem quyết định
+ trên liên kết riêng. Mỗi yêu cầu được quyết định một lần; lô còn yêu cầu
+ hủy chưa xử lý không thể chốt phân bổ.

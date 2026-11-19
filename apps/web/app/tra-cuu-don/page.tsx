@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useState} from 'react';
-type Receipt={allocatedKg:number|null;id:string;name:string;kg:number;priceVnd:number;totalVnd:number;batchId:string;expiresAt:string|null;cancelRequested:boolean;status:'HOLD'|'EXPIRED'|'PENDING'|'CONFIRMED'|'CANCELLED'};
+type Receipt={allocatedKg:number|null;id:string;name:string;kg:number;priceVnd:number;totalVnd:number;batchId:string;expiresAt:string|null;cancelRequested:boolean;cancelDecision:string|null;status:'HOLD'|'EXPIRED'|'PENDING'|'CONFIRMED'|'CANCELLED'};
 export default function Lookup(){
  const [order,O]=useState<Receipt|null>(null),[message,M]=useState('Đang tải đơn…'),[version,V]=useState(0);
  const [code,C]=useState(''),[phone,P]=useState(''),[busy,B]=useState(false),[notice,N]=useState('');
@@ -34,7 +34,8 @@ export default function Lookup(){
  <button disabled={busy||code.length!==6} onClick={()=>change('verify')}>Xác minh số điện thoại</button>
  <details><summary>Chưa nhận được mã?</summary><label>Số điện thoại đã đặt <input value={phone} onChange={e=>P(e.target.value)}/></label>
  <button disabled={busy} onClick={()=>change('resend')}>Gửi lại mã</button></details></>}
- {['HOLD','PENDING','CONFIRMED'].includes(order.status)&&order.allocatedKg===null&&<button disabled={busy||order.cancelRequested} onClick={()=>{if(confirm('Bạn muốn hủy đơn này?'))void change('cancel')}}>{order.cancelRequested?'Đã gửi yêu cầu hủy':order.status==='CONFIRMED'?'Yêu cầu chủ trại duyệt hủy':'Hủy giữ chỗ'}</button>}
+ {order.cancelDecision&&<p>{order.cancelDecision==='APPROVED'?'Chủ trại đã duyệt yêu cầu hủy.':'Chủ trại đã từ chối yêu cầu hủy.'}</p>}
+ {!order.cancelDecision&&['HOLD','PENDING','CONFIRMED'].includes(order.status)&&order.allocatedKg===null&&<button disabled={busy||order.cancelRequested} onClick={()=>{if(confirm('Bạn muốn hủy đơn này?'))void change('cancel')}}>{order.cancelRequested?'Đã gửi yêu cầu hủy':order.status==='CONFIRMED'?'Yêu cầu chủ trại duyệt hủy':'Hủy giữ chỗ'}</button>}
  {order.allocatedKg!==null&&<p>Đã đặt: {order.kg} kg · Được phân bổ: {order.allocatedKg} kg</p>}
  <p>{order.kg} kg × {order.priceVnd.toLocaleString('vi-VN')} ₫/kg · Giá trị đặt ban đầu: {order.totalVnd.toLocaleString('vi-VN')} ₫</p>
  <a href={'/lo/'+encodeURIComponent(order.batchId)}>Truy xuất nguồn gốc lô</a></section>}

@@ -125,7 +125,7 @@ app.get('/api/public/order-lookup',async(req,res)=>{
   res.set('Cache-Control','no-store');
   const token=req.headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
   if(!token){res.sendStatus(404);return;}
-  const order=await db.preorder.findUnique({where:{lookupHash:digest(token)},select:{expiresAt:true,cancelRequested:true,allocatedKg:true,id:true,kg:true,priceVnd:true,status:true,
+  const order=await db.preorder.findUnique({where:{lookupHash:digest(token)},select:{expiresAt:true,cancelRequested:true,cancelDecision:true,allocatedKg:true,id:true,kg:true,priceVnd:true,status:true,
     batchId:true,offer:{select:{batch:{select:{name:true}}}}}});
   if(!order){res.sendStatus(404);return;}
   const {offer,...receipt}=order;

@@ -4,7 +4,7 @@ async function proxy(req:Request){
   let suffix='?page='+encodeURIComponent(url.searchParams.get('page')??'1')+'&batch='+encodeURIComponent(url.searchParams.get('batch')??'');
   if(req.method==='POST'){
     const id=url.searchParams.get('id')??'',action=url.searchParams.get('action');
-    if(!/^[a-f\d-]{36}$/i.test(id)||!['confirm','cancel'].includes(action??''))return new Response(null,{status:400});
+    if(!/^[a-f\d-]{36}$/i.test(id)||!['confirm','cancel','approve-cancel','decline-cancel'].includes(action??''))return new Response(null,{status:400});
     suffix='/'+id+'/'+action;
   }
   let body:string|undefined;

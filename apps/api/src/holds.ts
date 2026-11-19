@@ -45,7 +45,10 @@ export function holdRoutes(db:PrismaClient){
      if(action==='cancel'){
        if(o.status==='CANCELLED')return 204;
        if(o.status==='HOLD'||o.status==='PENDING'){await release(tx,o,'CANCELLED');return 204;}
-       if(o.status==='CONFIRMED'&&o.allocatedKg===null){await tx.preorder.update({where:{id:o.id},data:{cancelRequested:true}});return 202;}
+       if(o.status==='CONFIRMED'&&o.allocatedKg===null&&!o.cancelDecision){
+         const [offer]=await tx.$queryRaw<{allocatedAt:Date|null}[]>`SELECT "allocatedAt" FROM "Offer" WHERE "batchId"=${o.batchId} FOR UPDATE`;
+         if(offer.allocatedAt)return 409;
+         await tx.preorder.update({where:{id:o.id},data:{cancelRequested:true}});return 202;}
        return 409;
      }
      if(o.status!=='HOLD')return action==='verify'&&['PENDING','CONFIRMED'].includes(o.status)?204:409;

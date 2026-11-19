@@ -1,11 +1,11 @@
 'use client';
 import {useState} from 'react';
-type Order={id:string;kg:number;createdAt:string};
+type Order={cancelRequested:boolean;id:string;kg:number;createdAt:string};
 type Plan={version:string;allocatedAt:string|null;actualKg:number;remainingKg:number;confirmed:(Order&{proposedKg:number;missingKg:number})[];pending:Order[]};
 export default function AllocationPreview({code,ownerKey}:{code:string;ownerKey:string}){
  const [plan,set]=useState<Plan|null>(null),[busy,B]=useState(false),[error,E]=useState('');
  const sum=plan?plan.actualKg-plan.remainingKg:0;
- const invalid=!plan||!plan.confirmed.length||!!plan.pending.length;
+ const invalid=!plan||!plan.confirmed.length||!!plan.pending.length||plan.confirmed.some(o=>o.cancelRequested);
  async function finalize(){
    if(!plan||invalid||!confirm('Chốt phân bổ '+sum+' kg? Khách sẽ thấy kết quả trên liên kết tra cứu.'))return;
    B(true);E('');
@@ -31,6 +31,7 @@ export default function AllocationPreview({code,ownerKey}:{code:string;ownerKey:
  <p>{plan.allocatedAt?'Khách có thể tra cứu kết quả.':'Đơn đặt trước nhận đủ trước, đơn kế tiếp nhận phần còn lại. Hãy xác nhận hoặc hủy hết đơn đang chờ.'}</p>
  {plan.confirmed.length?<table><thead><tr><th>Mã đơn</th><th>Thời điểm đặt (giờ Việt Nam)</th><th>Đã đặt</th><th>Đề xuất giao</th><th>Thiếu</th></tr></thead>
  <tbody>{plan.confirmed.map(o=><tr key={o.id}><td>{o.id}</td><td>{new Date(o.createdAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})}</td><td>{o.kg} kg</td><td>{o.proposedKg} kg</td><td>{o.missingKg} kg</td></tr>)}</tbody></table>:<p>Chưa có đơn đã xác nhận.</p>}
+ {plan.confirmed.some(o=>o.cancelRequested)&&<p>Còn yêu cầu hủy chưa xử lý. Duyệt hoặc từ chối trước khi chốt phân bổ.</p>}
  <h4>Chờ xác nhận · chưa phân bổ</h4>{plan.pending.length?<ul>{plan.pending.map(o=><li key={o.id}>{o.id} · Đặt {o.kg} kg</li>)}</ul>:<p>Không có đơn chờ xác nhận.</p>}
  {!plan.allocatedAt&&<button disabled={busy||invalid} onClick={finalize}>Chốt phân bổ</button>}
  <button disabled={busy} onClick={()=>set(null)}>Đóng bản xem trước</button></>}</section>;

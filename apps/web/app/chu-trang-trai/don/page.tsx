@@ -1,7 +1,7 @@
 'use client';
 import AllocationPreview from './allocation-preview';
 import {useState} from 'react';
-type Order={id:string;kg:number;batchId:string;priceVnd:number;cancelRequested:boolean;status:'HOLD'|'EXPIRED'|'PENDING'|'CONFIRMED'|'CANCELLED'};
+type Order={id:string;kg:number;batchId:string;priceVnd:number;cancelRequested:boolean;cancelDecision:string|null;status:'HOLD'|'EXPIRED'|'PENDING'|'CONFIRMED'|'CANCELLED'};
 const label={HOLD:'Chờ OTP',EXPIRED:'Hết hạn',PENDING:'Chờ xác nhận',CONFIRMED:'Đã xác nhận',CANCELLED:'Đã hủy'};
 export default function Orders(){
  const [key,K]=useState(''),[rows,R]=useState<Order[]|null>(null),[page,P]=useState(1),[more,M]=useState(false),[msg,S]=useState(''),[busy,B]=useState(false);
@@ -78,9 +78,11 @@ export default function Orders(){
  <form key={o.priceVnd} onSubmit={e=>{e.preventDefault();void load(page,undefined,undefined,{batchId:o.batchId,priceVnd:Number(new FormData(e.currentTarget).get('price'))});}}>
  <label>Giá bán (₫/kg) <input name="price" type="number" required min={1} max={2147483647} step={1} defaultValue={o.priceVnd} disabled={busy}/></label>
  <button disabled={busy}>Lưu giá</button></form></>}</section>)}<h2>Danh sách đơn</h2>{filter&&<p>Lô {filter} · <button disabled={busy} onClick={()=>load(1,undefined,undefined,undefined,'')}>Xem tất cả đơn</button></p>}<p>Trang {page} · {rows.length} đơn</p>{rows.map(o=><section key={o.id}><h2>Lô {o.batchId}</h2>
- <p>{o.id} · {o.kg} kg · {(o.kg*o.priceVnd).toLocaleString('vi-VN')} ₫ · {label[o.status]} {o.cancelRequested?'· Khách yêu cầu hủy':''}</p>
+ <p>{o.id} · {o.kg} kg · {(o.kg*o.priceVnd).toLocaleString('vi-VN')} ₫ · {label[o.status]} {o.cancelRequested?'· Khách yêu cầu hủy':o.cancelDecision==='APPROVED'?'· Đã duyệt hủy':o.cancelDecision==='DECLINED'?'· Đã từ chối yêu cầu hủy':''}</p>
  {o.status==='PENDING'&&<button disabled={busy} onClick={()=>load(page,o.id,'confirm')}>Xác nhận</button>}
- {!['CANCELLED','EXPIRED'].includes(o.status)&&<button disabled={busy} onClick={()=>{if(confirm('Hủy đơn và hoàn '+o.kg+' kg cho lô?'))void load(page,o.id,'cancel');}}>Hủy đơn</button>}</section>)}
+ {o.cancelRequested&&<><button disabled={busy} onClick={()=>{if(confirm('Duyệt hủy và hoàn '+o.kg+' kg?'))void load(page,o.id,'approve-cancel');}}>Duyệt hủy</button>
+ <button disabled={busy} onClick={()=>{if(confirm('Từ chối yêu cầu hủy và giữ nguyên đơn?'))void load(page,o.id,'decline-cancel');}}>Từ chối hủy</button></>}
+ {!o.cancelRequested&&!['CANCELLED','EXPIRED'].includes(o.status)&&<button disabled={busy} onClick={()=>{if(confirm('Hủy đơn và hoàn '+o.kg+' kg cho lô?'))void load(page,o.id,'cancel');}}>Hủy đơn</button>}</section>)}
  <button disabled={busy||page===1} onClick={()=>load(page-1)}>Trang trước</button><button disabled={busy||!more} onClick={()=>load(page+1)}>Trang sau</button></>}
  </main>;
 }
