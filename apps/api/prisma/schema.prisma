@@ -48,6 +48,8 @@ model SimulatedDay {
 }
 
 model Irrigation {
+  requiresValveAck Boolean @default(false)
+  closedAt DateTime? @db.Timestamptz
   startedAt DateTime? @db.Timestamptz
   flowMlPerSecond Int?
   estimatedMl BigInt?

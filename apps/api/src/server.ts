@@ -50,14 +50,16 @@ app.post(['/api/farms/demo/simulation/day-one','/api/farms/demo/simulation/days/
   res.status(status).json(status===200 ? {source:'SIMULATION',scenario,weather:input} : {error:'Cần tạo vùng mẫu và chạy ngày trước đó'});
 });
 app.post('/api/farms/demo/simulation/reset', async (_, res) => {
-  await db.$transaction(async tx => {
+  const allowed=await db.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(527005)`;
     const pumps=await tx.pump.findMany({where:{farmId:"demo"},orderBy:{id:"asc"}});
     for(const pump of pumps) await lockPump(tx,pump.id);
+    if(await tx.irrigation.count({where:{pump:{farmId:"demo"},requiresValveAck:true,status:"RUNNING"}})) return false;
     await tx.irrigation.deleteMany({where:{pump:{farmId:"demo"}}});
     await tx.simulatedDay.deleteMany({where:{scenario,zone:{pump:{farmId:'demo'}}}});
+    return true;
   });
-  res.sendStatus(204);
+  res.sendStatus(allowed?204:409);
 });
 app.post('/api/farms/demo/zones/:id/irrigate',async(req,res)=>{
   const job=await db.$transaction(async tx=>{

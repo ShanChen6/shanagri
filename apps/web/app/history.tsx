@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useState} from 'react';
-type Entry={id:number;source:string;finishAt:string;estimatedLiters:number|null;zone:{name:string}};
+type Entry={id:number;source:string;finishAt:string;closedAt:string|null;estimatedLiters:number|null;zone:{name:string}};
 export default function History({zones}:{zones:{id:string;name:string}[]}){
   const [zone,setZone]=useState(''),[rows,setRows]=useState<Entry[]|null>(null),[failed,setFailed]=useState(false);
   useEffect(()=>{
@@ -20,6 +20,6 @@ export default function History({zones}:{zones:{id:string;name:string}[]}){
     <option value="">Tất cả</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}</select></label>
     {failed?<p>Không tải được nhật ký.</p>:!rows?<p>Đang tải…</p>:!rows.length?<p>Chưa có lượt tưới hoàn tất.</p>:
     <table><caption>50 lượt gần nhất · thời gian thực</caption><thead><tr><th>Kết thúc</th><th>Vùng</th><th>Yêu cầu</th><th>Nước ước tính</th></tr></thead>
-    <tbody>{rows.map(r=><tr key={r.id}><td>{new Date(r.finishAt).toLocaleString('vi-VN')}</td><td>{r.zone.name}</td><td>{r.source==='AUTO'?'Tự động':'Thủ công'}</td>
+    <tbody>{rows.map(r=><tr key={r.id}><td>{new Date(r.closedAt??r.finishAt).toLocaleString('vi-VN')}</td><td>{r.zone.name}</td><td>{r.source==='AUTO'?'Tự động':'Thủ công'}</td>
     <td>{r.estimatedLiters===null?'Chưa có dữ liệu':r.estimatedLiters.toLocaleString('vi-VN')+' L'}</td></tr>)}</tbody></table>}</section>;
 }

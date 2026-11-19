@@ -1,0 +1,1 @@
+ALTER TABLE "Irrigation" ADD COLUMN "requiresValveAck" BOOLEAN NOT NULL DEFAULT false, ADD COLUMN "closedAt" TIMESTAMPTZ;

@@ -69,3 +69,15 @@ lập cho zone-cam. Tải lại dashboard để xem bản ghi mới nhất. API 
 token, phạm vi 0–100%, từ chối mẫu mới quá 60 giây hoặc vượt trước hơn
 5 giây. Gửi lại cùng ID và nội dung không tạo bản ghi thứ hai.
 Dữ liệu thiết bị ảo độc lập với Time-Warp, chưa kích hoạt tưới.
+
+### Van ảo có xác nhận
+Sau db:setup, đặt VIRTUAL_VALVE_ENABLED=true và DEVICE_SIM_TOKEN trong .env,
+khởi động lại API. Chạy đúng một tiến trình điều khiển:
+```sh
+node --env-file=.env apps/device-sim/valve.mjs
+```
+Các lượt Cam Sành mới yêu cầu thiết bị đọc OPEN/STOP qua HTTP. Khi mất kết nối,
+van giả lập tự đóng; backend vẫn giữ bơm cho đến khi nhận CLOSED đúng mã lượt.
+Sau khi kết nối lại, thiết bị đọc STOP và gửi lại xác nhận nếu cần. Reset trả
+409 khi còn lượt van ảo chưa xác nhận. Cờ môi trường không thay đổi lượt đã tạo.
+Xương Rồng vẫn dùng bộ mô phỏng thời gian. Lượt van ảo chưa đo lưu lượng.
