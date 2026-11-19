@@ -1,6 +1,6 @@
 # Shanagri
 
-Mô phỏng tưới tiêu và truy xuất nguồn gốc nông sản.
+Mô phỏng tưới tiêu, truy xuất nguồn gốc và quản lý đặt trước nông sản cho trang trại mẫu.
 
 ## Chạy local
 Cần Node.js 24, npm và Docker Compose. Tại thư mục gốc:
@@ -14,11 +14,15 @@ npm run dev:api
 Mở terminal khác chạy `npm run dev:web`. Web: http://localhost:3000.
 API: http://localhost:4000/health/ready (503 nếu database chưa sẵn sàng).
 
-## Các mốc
-1. Nền tảng web, API và PostgreSQL.
-2. Prisma, migration và seed hai vùng Cam Sành, Xương Rồng.
-3. Mô phỏng thời tiết, độ ẩm và hàng đợi tưới theo bơm.
-4. Thiết bị IoT ảo, truy xuất lô và đặt trước.
+## Các màn hình chính
+
+| Đường dẫn | Chức năng |
+| --- | --- |
+| `/` | Tổng quan vùng trồng, mô phỏng độ ẩm, hàng đợi và nhật ký tưới. |
+| `/cho-nong-san` | Tìm, lọc và so sánh các lô trên Chợ nông sản. |
+| `/lo/:code` | Xem nguồn gốc, lịch sử tưới và đặt trước theo lô. |
+| `/tra-cuu-don#<token>` | Xác minh OTP, tra cứu phân bổ và theo dõi tiến độ giao hàng. |
+| `/chu-trang-trai/don` | Tạo và công bố lô, quản lý đơn, chốt phân bổ, soạn và giao hàng. |
 
 ## Kiểm tra vùng trồng
 Chạy lại `npm run db:setup` để áp dụng migration và bổ sung bản ghi mẫu còn thiếu.
@@ -95,39 +99,33 @@ lô khớp, lượt vẫn chạy nhưng không công bố dưới bất kỳ lô
 trùng không thay đổi liên kết ban đầu; dữ liệu cũ không được gán hồi tố.
 Trang lô chỉ hiển thị lượt DONE và để trống ước tính nếu thiếu dữ liệu.
 
-### Đặt trước thử nghiệm
-Sau db:setup, lô CAM-2026-01 có 100 kg để giữ chỗ, 35.000 đồng/kg. Trang
-truy xuất cho đặt số kg nguyên, trả mã đơn mẫu; không thu tiền, không giao
-hàng. POST /api/public/batches/:code/preorders nhận {id,kg}; id là UUID v4
-cho mỗi ý định đặt. Gửi lại nguyên yêu cầu không trừ thêm hạn mức. Đơn lưu
-đơn giá tại lúc đặt. Seed lại hoặc reset mô phỏng không xóa đơn đã giữ.
+## Chợ nông sản và đặt trước
 
-### Quản lý đơn của chủ trang trại mẫu
-Chạy db:setup, đặt DEMO_OWNER_TOKEN thành một chuỗi bí mật riêng trong .env
-và khởi động lại API. Mở /chu-trang-trai/don và nhập mã này. Mã chỉ dùng
-cho trang trại demo, không phải tài khoản người mua. Đơn đang chờ có thể
-xác nhận hoặc hủy; đơn đã xác nhận cũng có thể hủy. Đơn đã hủy không mở lại.
-Hủy nhiều lần chỉ hoàn kg một lần. Danh sách phân trang 25 đơn.
+Mở `/cho-nong-san` để tìm theo tên nông sản, mã lô hoặc tên trang trại. Có thể nhập tiếng Việt có dấu hoặc không dấu. Lọc theo tình trạng còn nhận đặt trước hay đã hết số lượng, rồi sắp xếp theo giá thấp nhất hoặc ngày thu hoạch sớm nhất. Mỗi trang hiển thị tối đa 12 lô. Đường dẫn giữ từ khóa, bộ lọc, cách sắp xếp và số trang.
 
-Trong trang quản lý đơn, chủ trang trại có thể **Tạm dừng nhận đơn** hoặc
-**Mở lại** từng lô. Trạng thái này không thay đổi hạn mức còn lại hoặc các
-đơn đã giữ chỗ; gửi lại đúng yêu cầu cũ vẫn trả về đơn đã đặt.
+Chợ hiển thị lô đã công bố, còn mở và chưa đến hạn chốt. Lô hết số lượng vẫn có liên kết truy xuất. API `GET /api/public/market` mặc định chỉ trả lô còn số lượng. Dùng `sort=price` để sắp xếp theo giá và `includeSoldOut=1` để lấy thêm lô đã hết số lượng.
 
-### Chợ nông sản
-Mở /cho-nong-san để so sánh lô theo giá/kg và ngày thu hoạch dự kiến.
-Chợ chỉ hiển thị lô đã công bố, đang nhận đơn và còn kg. API đọc:
-GET /api/public/market?sort=price hoặc sort=harvest (mặc định).
-Chạy npm run db:setup để bổ sung lô mẫu tháng 2; seed giữ nguyên các đơn,
-giá và số lượng hiện có. Ngày thu hoạch trong dữ liệu mẫu là ngày mô phỏng.
+### Giữ chỗ và xác minh số điện thoại
 
-Chủ trang trại có thể đổi đơn giá nguyên VND/kg của từng lô ở trang quản lý.
-Đơn cũ giữ giá lúc đặt. Form khách gửi expectedPriceVnd; nếu giá đổi trước
-khi giữ chỗ, API trả 412, không trừ hạn mức và trang tải lại giá.
+Sau khi chạy `npm run db:setup`, lô mẫu `CAM-2026-01` có hạn mức 100 kg với giá 35.000 ₫/kg. Khách nhập số điện thoại di động Việt Nam và số kg nguyên để giữ chỗ. MVP ghi nhận giá trị đơn và tiến độ giao hàng phục vụ thử nghiệm, chưa tích hợp thanh toán hoặc đơn vị vận chuyển.
 
-Tại /chu-trang-trai/don, nhập tổng hạn mức mới (kg nguyên) khi dự báo sản
-lượng thay đổi. Đã giữ gồm đơn chờ và đơn xác nhận. Còn bán = tổng hạn mức
-trừ đã giữ. Có thể giảm về đúng số đã giữ; hệ thống từ chối giảm thấp hơn.
-Migration 0011 khôi phục tổng hạn mức từ lượng còn bán và các đơn chưa hủy.
+Để nhận OTP, cấu hình `OTP_SECRET` bằng chuỗi ngẫu nhiên riêng dài ít nhất 32 ký tự. Đặt `SMS_WEBHOOK_URL` và `SMS_WEBHOOK_TOKEN` cho bộ chuyển tiếp SMS. API gửi JSON `{to,message}` qua HTTP POST với Bearer token. Khi sử dụng thật, dùng URL HTTPS và bộ chuyển tiếp hỗ trợ số Việt Nam dạng `+84`. Thiếu cấu hình SMS thì API không tạo giữ chỗ mới.
+
+Mỗi lượt giữ chỗ có 10 phút để xác minh. Một số điện thoại được giữ tối đa một lượt chờ xác minh cùng lúc và tạo tối đa ba lượt mỗi giờ, kể cả lượt đã hủy. OTP được thử tối đa năm lần. Lượt gửi lại cách nhau ít nhất 60 giây, tổng cộng tối đa ba SMS mỗi lượt giữ chỗ và không gia hạn. Toàn hệ thống nhận tối đa 60 lượt giữ chỗ cần SMS mới trong 10 phút. Khi hết hạn, hệ thống hoàn lại số kg đã giữ.
+
+API `POST /api/public/batches/:code/preorders` nhận `id` (UUID), `kg`, `phone`, `lookupToken` và trường tùy chọn `expectedPriceVnd`. Gửi lại cùng yêu cầu không trừ thêm hạn mức. Đơn giữ đơn giá tại thời điểm đặt. Nếu giá đã đổi, API trả `412`. Nếu thiếu hàng, API trả `409 INSUFFICIENT_STOCK` kèm `remainingKg` để khách chọn lại số lượng. Số kg còn nhận trên chợ và trang lô tự cập nhật mỗi 10 giây khi tab hiển thị và khi quay lại tab.
+
+### Liên kết tra cứu đơn
+
+Sau khi giữ chỗ, khách mở hoặc sao chép liên kết riêng để xác minh, xem quyết định hủy, kết quả phân bổ và tiến độ giao hàng. Token nằm sau dấu `#`, được gửi qua header `Authorization`. PostgreSQL lưu mã băm SHA-256 của token. Ai có liên kết đều có thể tra cứu đơn tương ứng, nên hãy giữ liên kết riêng. Mã đơn chỉ dùng để đối chiếu với chủ trại.
+
+## Quản lý đơn của chủ trại
+
+Đặt `DEMO_OWNER_TOKEN` thành một chuỗi bí mật riêng trong `.env`, khởi động lại API rồi nhập mã tại `/chu-trang-trai/don`. Trong **Danh sách đơn**, có thể tìm theo mã đơn đầy đủ và kết hợp bộ lọc theo lô, trạng thái, tiến độ soạn/giao hoặc yêu cầu hủy đang chờ. Danh sách hiển thị tổng số đơn phù hợp và tối đa 25 đơn mỗi trang.
+
+Chủ trại xác nhận hoặc hủy đơn đang chờ. Khi khách yêu cầu hủy đơn đã xác nhận, chủ trại chọn **Duyệt hủy** để hoàn kg đúng một lần hoặc **Từ chối hủy** để giữ nguyên đơn. Khách xem quyết định qua liên kết tra cứu.
+
+Với lô còn mở bán, chủ trại có thể đổi giá cho đơn mới, cập nhật hạn mức hoặc chọn **Tạm dừng nhận đơn** và **Mở lại**. Tổng hạn mức mới phải ít nhất bằng số kg đang giữ. Sau khi chốt thu hoạch, lô dừng nhận đặt trước.
 
 ### Tạo lô nháp
 Vào /chu-trang-trai/don bằng mã chủ trang trại, nhập tên, vùng trồng và
@@ -141,74 +139,31 @@ VND/kg và hạn mức kg nguyên dương. Chọn **Xem lại và mở bán**, k
 thông tin và xác nhận. Trang truy xuất và tin bán xuất hiện cùng lúc.
 Gửi lại lệnh công bố không cập nhật giá, tồn hoặc trạng thái nhận đơn.
 
-### Liên kết tra cứu đơn
-Sau khi đặt qua web, khách lưu liên kết riêng ở phần xác nhận để xem đơn
-tại /tra-cuu-don. Ai giữ liên kết đều có thể đọc đơn tương ứng. Token ngẫu nhiên
-nằm sau dấu # và được gửi đến API qua Authorization; PostgreSQL chỉ lưu SHA-256.
-Đơn cũ chưa có liên kết không được cấp quyền tra cứu chỉ từ mã đơn.
+Khi công bố, có thể nhập hạn chốt theo giờ Việt Nam (UTC+7), độc lập với ngày thu hoạch dự kiến. Trường API `closesAt` nhận thời điểm ISO UTC hoặc `null`. Khi đến hạn, lô rời chợ. Các đơn đã tạo vẫn tra cứu và xử lý được.
 
-Khi công bố lô có thể nhập hạn chốt theo giờ Việt Nam (UTC+7), độc lập
-với ngày mô phỏng. Trường closesAt của API nhận ISO UTC dạng
-YYYY-MM-DDTHH:mm:ss.sssZ hoặc null. Kể từ hạn chốt lô rời chợ và đơn mới
-không thể giữ chỗ. Lô cũ mặc định không có hạn; tra cứu và xử lý đơn cũ
-vẫn hoạt động.
+### Chốt thu hoạch và phân bổ
 
-### Chốt thu hoạch
-Trong quản lý đơn, chốt ngày thực thu và số kg nguyên (kể cả 0) cho từng lô đã mở bán.
-Mỗi lô chốt một lần, dừng nhận đơn; không đổi hạn mức cũ hoặc tự phân bổ lại đơn.
-Trang chủ trại so sánh sản lượng với lượng đang giữ và lọc đơn của lô. Trang công khai chỉ thêm ngày thu hoạch thực tế.
+1. Nhập ngày thực thu và sản lượng nguyên kg, kể cả 0, rồi chọn **Chốt thu hoạch**. Mỗi lô được chốt một lần. Cần xử lý hoặc đợi hết hạn các lượt giữ chỗ đang chờ OTP của lô trước khi chốt.
+2. Chọn **Xem trước phân bổ** để đối chiếu sản lượng thực thu, đã đặt, dự kiến giao, còn thiếu và chưa phân bổ. Dùng lối tắt trong bản xem trước để xử lý đơn chờ xác nhận hoặc yêu cầu hủy.
+3. Chọn **Chốt phân bổ** rồi **Xác nhận chốt phân bổ**. Hệ thống ưu tiên đơn đến trước. Ví dụ, 65 kg thực thu cho ba đơn 30, 25 và 25 kg được chia thành 30, 25 và 10 kg. Nếu dữ liệu thay đổi giữa lúc xem và lúc xác nhận, cần tải lại phương án. Chốt phân bổ một lần cho mỗi lô.
 
-### Xem trước phân bổ sau thu hoạch
-Trong trang quản lý đơn, chọn **Xem trước phân bổ** ở lô đã chốt thu hoạch.
-Sản lượng thực thu được đề xuất cho các đơn đã xác nhận theo thời điểm đặt
-(tăng dần, cùng thời điểm thì theo mã đơn). Đơn chờ xác nhận hiển thị riêng,
-đơn hủy bị loại. Bản xem trước không ghi dữ liệu; chọn cập nhật để tính lại.
+### Soạn và giao hàng
 
-### Chốt phân bổ
-Xử lý hết đơn đang chờ trước khi chốt. Thứ tự đặt quyết định phân bổ:
-đơn trước nhận đủ rồi mới tới đơn sau. Với 65 kg cho ba đơn 30, 25, 25 kg,
-kết quả bắt buộc là 30, 25, 10 kg. Chủ trại không thể sửa số kg từng đơn.
-Bản xem
-trước cũ bị từ chối nếu tập đơn hoặc trạng thái thay đổi. Chốt một lần;
-sau đó không thể hủy đơn thuộc phương án. Liên kết tra cứu hiển thị cả số kg
-đặt ban đầu và số kg được phân bổ, kể cả khi phân bổ 0 kg.
+- Trong bảng phân bổ đã chốt, chọn **Tải danh sách soạn hàng (CSV)**. File có mã lô, mã đơn, số kg đã đặt, số kg cần soạn, đơn giá và giá trị giao. File chỉ gồm các đơn có số kg phân bổ lớn hơn 0.
+- Theo dõi **Chờ soạn hàng**, **Chờ giao** và **Đã giao** trong hàng đợi của tất cả lô hoặc lô đang lọc. Có thể đánh dấu trực tiếp từ thẻ đơn hoặc bảng phân bổ. Đơn cần được đánh dấu đã soạn trước khi xác nhận đã giao.
+- Trong hàng đợi **Chờ soạn hàng** hoặc **Chờ giao**, có thể chọn từng đơn hoặc **Chọn tất cả trên trang**, tối đa 25 đơn mỗi lượt. Kiểm tra tổng số đơn và số kg trước khi xác nhận. Nếu một đơn không đủ điều kiện, cả lượt cập nhật được hoàn tác. Gửi lại cùng thao tác giữ nguyên thời điểm đã lưu.
+- Khách thấy số kg được phân bổ, giá trị theo số lượng giao và tiến độ trên trang tra cứu. Đơn phân bổ 0 kg hiển thị rõ không có hàng để giao.
 
 ## Nghiệm thu MVP
-Workflow **MVP acceptance** chạy khi push vào develop, trên PR vào main/develop hoặc được chạy thủ
-công. Mỗi lượt dùng PostgreSQL riêng, migration và seed mới. Không chạy
-các script nghiệm thu trên dữ liệu đang dùng: chúng tạo đơn và chốt lô.
-Để chạy local: dùng database mới, đặt DEMO_OWNER_TOKEN, tắt chế độ van ảo,
-chạy db:setup, khởi động API và web ở cổng 4000/3000. Chạy
-`node tests/acceptance/api.mjs`, sau đó cài Python Playwright như trong
-workflow và chạy `python tests/acceptance/browser.py`. Tạo lại database thử
-riêng trước khi chạy lại. API kiểm tra cả hàng đợi và nhật ký tưới; browser
-đi qua giao diện chủ trại và ba phiên khách độc lập.
 
-Số kg trên chợ và trang lô là số còn nhận đặt, được tải lại mỗi 10 giây
-khi tab hiển thị và khi quay lại tab. Khi khách gửi đơn từ trang cũ, API
-kiểm tra lại trong giao dịch. Nếu không đủ, trả 409 INSUFFICIENT_STOCK kèm
-remainingKg; khách tự chọn lại số kg. Không tự động tạo đơn một phần.
+Workflow [MVP acceptance](.github/workflows/mvp-acceptance.yml) chạy khi cập nhật `develop`, mở hoặc cập nhật PR vào `main` hay `develop`, hoặc chạy thủ công. Chỉ chạy các script nghiệm thu trên PostgreSQL thử nghiệm mới vì chúng tạo đơn và chốt lô.
 
-### Giữ chỗ và xác minh số điện thoại
-Cấu hình OTP_SECRET (chuỗi ngẫu nhiên riêng, ít nhất 32 ký tự) và bộ chuyển tiếp
-SMS của bạn: SMS_WEBHOOK_URL (HTTPS), SMS_WEBHOOK_TOKEN. API gửi POST JSON
-{to,message} với Authorization: Bearer TOKEN. Bộ chuyển tiếp cần gửi SMS tới
-số Việt Nam ở dạng +84. Khi chưa cấu hình, không tạo giữ chỗ mới. Không cần
-chuyển đổi các đơn đã đặt trước migration 0016.
+Để chạy local, đặt `DATABASE_URL` cho database thử nghiệm, `DEMO_OWNER_TOKEN`, `OTP_SECRET`, `SMS_WEBHOOK_TOKEN` và `SMS_WEBHOOK_URL=http://127.0.0.1:4599`. Tắt `VIRTUAL_VALVE_ENABLED`. Chạy `npm run db:setup`, khởi động API ở cổng 4000, web ở cổng 3000 và hộp thư kiểm thử bằng `node tests/acceptance/sms.mjs`. Các tiến trình API, hộp thư và kịch bản nghiệm thu phải nhận cùng cấu hình từ môi trường, kể cả khi chạy ở các terminal khác nhau. Sau đó chạy:
 
-Giữ chỗ 10 phút theo thời gian thực. Mỗi số: một giữ chỗ chưa xác minh,
-tối đa 3 lượt tạo/giờ. OTP thử tối đa 5 lần; gửi lại cách nhau 60 giây,
-tối đa 3 SMS/lượt, không gia hạn. Mở liên kết tra cứu để xác minh hoặc hủy.
-Xác minh giữ nguyên thời điểm xếp FIFO. Worker hoàn kg cho lượt hết hạn kể
-cả sau khởi động lại. Sau xác nhận của chủ trại, yêu cầu hủy không hoàn kg
-cho đến khi chủ trại duyệt. Không mở lại lô đã đóng.
-CI dùng hộp thư SMS cục bộ tests/acceptance/sms.mjs, với ba biến môi trường
-như trong workflow. Không triển khai hộp thư kiểm thử lên môi trường thật.
-Mỗi 10 phút toàn hệ thống nhận tối đa 60 lượt giữ chỗ mới cần SMS. Nếu
-trang trại còn giữ chỗ chưa xác minh, hãy đợi khách xác minh, hủy hoặc hết
-hạn trước khi chốt thu hoạch. Kiểm thử không chứng minh SMS đã tới điện thoại thật.
+```sh
+node tests/acceptance/api.mjs
+python -m playwright install chromium
+python tests/acceptance/browser.py
+```
 
- Với đơn đã xác nhận, chủ trại chọn **Duyệt hủy** (hoàn kg đúng một lần)
- hoặc **Từ chối hủy** (giữ nguyên đơn và thứ tự FIFO). Khách xem quyết định
- trên liên kết riêng. Mỗi yêu cầu được quyết định một lần; lô còn yêu cầu
- hủy chưa xử lý không thể chốt phân bổ.
+Cài Python Playwright theo phiên bản trong workflow. Bộ kiểm thử đi từ công bố lô, đặt trước và xác minh OTP đến phân bổ, CSV, soạn và giao hàng loạt. Hộp thư kiểm thử chỉ dành cho môi trường nghiệm thu. Việc nhận SMS trên điện thoại thật cần kiểm tra riêng với nhà cung cấp.
