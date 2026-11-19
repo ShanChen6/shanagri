@@ -81,3 +81,9 @@ van giả lập tự đóng; backend vẫn giữ bơm cho đến khi nhận CLOS
 Sau khi kết nối lại, thiết bị đọc STOP và gửi lại xác nhận nếu cần. Reset trả
 409 khi còn lượt van ảo chưa xác nhận. Cờ môi trường không thay đổi lượt đã tạo.
 Xương Rồng vẫn dùng bộ mô phỏng thời gian. Lượt van ảo chưa đo lưu lượng.
+
+### Truy xuất lô
+Chạy db:setup để tạo lô CAM-2026-01. Mở /lo/CAM-2026-01 hoặc GET
+/api/public/batches/CAM-2026-01. Chỉ lô đã công bố được trả về. Nhật ký
+là dữ liệu chạy thử theo vùng, kịch bản và khoảng ngày của lô; reset mô phỏng
+cũng làm trống nhật ký demo. Nhu cầu tưới không có nghĩa là đã tưới.

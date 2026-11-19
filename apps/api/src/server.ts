@@ -90,4 +90,13 @@ async function tick(){
   finally{setTimeout(tick,1000).unref();}
 }
 void tick();
+app.get('/api/public/batches/:code',async(req,res)=>{
+  const batch=await db.batch.findFirst({where:{id:req.params.code,published:true},include:{zone:{include:{pump:{include:{farm:true}}}}}});
+  if(!batch){res.sendStatus(404);return;}
+  const history=await db.simulatedDay.findMany({where:{zoneId:batch.zoneId,scenario:batch.scenario,
+    simulatedDate:{gte:batch.startDate,lte:batch.expectedHarvestDate}},orderBy:{simulatedDate:'asc'},
+    select:{simulatedDate:true,moisturePct:true,needsWater:true}});
+  res.json({code:batch.id,name:batch.name,farm:batch.zone.pump.farm.name,zone:batch.zone.name,startDate:batch.startDate,
+    expectedHarvestDate:batch.expectedHarvestDate,source:'SIMULATION',history});
+});
 app.listen(Number(process.env.API_PORT ?? 4000));

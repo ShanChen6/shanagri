@@ -9,5 +9,6 @@ try {
       await put(tx.plantProfile,{id,name,dryBelowPct});
       await put(tx.zone,{id:'zone-'+id,name:'Vùng '+name,pumpId:'pump-demo',plantProfileId:id});
     }
+    await put(tx.batch,{id:"CAM-2026-01",zoneId:"zone-cam",name:"Cam Sành tháng 1",scenario:"dry-day-v1",startDate:new Date("2026-01-01Z"),expectedHarvestDate:new Date("2026-01-30Z"),published:true});
   });
 } finally { await db.$disconnect(); }
