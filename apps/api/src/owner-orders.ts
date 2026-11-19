@@ -13,12 +13,15 @@ export function ownerOrders(db:PrismaClient){
     if(!Number.isInteger(page)||page<1||page>100000){res.sendStatus(400);return;}
     const rows=await db.preorder.findMany({where:scope,orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*25,take:26});
     const offers=await db.offer.findMany({where:{batch:{zone:{pump:{farmId:'demo'}}}},orderBy:{batchId:'asc'},
-      select:{batchId:true,open:true,remainingKg:true}});
+      select:{batchId:true,open:true,remainingKg:true,priceVnd:true}});
     res.json({offers,orders:rows.slice(0,25),hasMore:rows.length>25});
   });
   router.put('/offers/:code',express.json({limit:'1kb'}),async(req,res)=>{
-    if(typeof req.body?.open!=='boolean'){res.sendStatus(400);return;}
-    const result=await db.offer.updateMany({where:{batchId:req.params.code,batch:{zone:{pump:{farmId:'demo'}}}},data:{open:req.body.open}});
+    const {priceVnd,open}=req.body??{};
+    const data=typeof open==='boolean' && priceVnd===undefined?{open}:
+      open===undefined && Number.isInteger(priceVnd) && priceVnd>0 && priceVnd<=2147483647?{priceVnd}:null;
+    if(!data){res.sendStatus(400);return;}
+    const result=await db.offer.updateMany({where:{batchId:req.params.code,batch:{zone:{pump:{farmId:'demo'}}}},data});
     res.sendStatus(result.count?204:404);
   });
   router.post('/:id/:action',async(req,res)=>{

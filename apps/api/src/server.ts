@@ -126,6 +126,7 @@ app.post('/api/public/batches/:code/preorders',express.json({limit:'2kb'}),async
     if(!rows.length)return {status:404};
     const prior=await tx.preorder.findUnique({where:{id}});
     if(prior)return prior.batchId===batchId && prior.kg===kg?{status:200,order:prior}:{status:409};
+    if(req.body.expectedPriceVnd!==undefined && req.body.expectedPriceVnd!==rows[0].priceVnd)return {status:412};
     if(!rows[0].open || rows[0].remainingKg<kg)return {status:409};
     await tx.offer.update({where:{batchId},data:{remainingKg:{decrement:kg}}});
     const order=await tx.preorder.create({data:{id,batchId,kg,priceVnd:rows[0].priceVnd}});

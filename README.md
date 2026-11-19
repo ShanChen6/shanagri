@@ -119,3 +119,7 @@ Chợ chỉ hiển thị lô đã công bố, đang nhận đơn và còn kg. AP
 GET /api/public/market?sort=price hoặc sort=harvest (mặc định).
 Chạy npm run db:setup để bổ sung lô mẫu tháng 2; seed giữ nguyên các đơn,
 giá và số lượng hiện có. Ngày thu hoạch trong dữ liệu mẫu là ngày mô phỏng.
+
+Chủ trang trại có thể đổi đơn giá nguyên VND/kg của từng lô ở trang quản lý.
+Đơn cũ giữ giá lúc đặt. Form khách gửi expectedPriceVnd; nếu giá đổi trước
+khi giữ chỗ, API trả 412, không trừ hạn mức và trang tải lại giá.

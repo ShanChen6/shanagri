@@ -8,9 +8,9 @@ export default function Order({code,remaining,price}:{code:string;remaining:numb
    if(lock.current)return;lock.current=true;setBusy(true);setMsg('');
    try{
      key.current ||= crypto.randomUUID();
-     const res=await fetch('/api/preorder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,id:key.current,kg})});
+     const res=await fetch('/api/preorder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,id:key.current,kg,expectedPriceVnd:price})});
      if(res.ok){const o=await res.json();setMsg('Đã giữ '+o.kg+' kg. Mã đơn mẫu: '+o.id);key.current='';}
-     else setMsg(res.status===409?'Không đủ số lượng hoặc lô đã ngừng nhận đơn.':'Chưa xác nhận được đơn. Hãy thử lại.');
+     else setMsg(res.status===412?'Giá đã thay đổi. Vui lòng xem giá mới trước khi đặt lại.':res.status===409?'Không đủ số lượng hoặc lô đã ngừng nhận đơn.':'Chưa xác nhận được đơn. Hãy thử lại.');
      router.refresh();
    }catch{setMsg('Chưa xác nhận được đơn. Hãy thử lại.');}
    finally{lock.current=false;setBusy(false);}
