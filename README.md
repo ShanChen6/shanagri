@@ -140,3 +140,9 @@ Lô nháp chưa có tin bán và chỉ hiển thị trong danh sách riêng củ
 VND/kg và hạn mức kg nguyên dương. Chọn **Xem lại và mở bán**, kiểm tra
 thông tin và xác nhận. Trang truy xuất và tin bán xuất hiện cùng lúc.
 Gửi lại lệnh công bố không cập nhật giá, tồn hoặc trạng thái nhận đơn.
+
+### Liên kết tra cứu đơn
+Sau khi đặt qua web, khách lưu liên kết riêng ở phần xác nhận để xem đơn
+tại /tra-cuu-don. Ai giữ liên kết đều có thể đọc đơn tương ứng. Token ngẫu nhiên
+nằm sau dấu # và được gửi đến API qua Authorization; PostgreSQL chỉ lưu SHA-256.
+Đơn cũ chưa có liên kết không được cấp quyền tra cứu chỉ từ mã đơn.

@@ -103,6 +103,7 @@ model Offer {
   orders Preorder[]
 }
 model Preorder {
+  lookupHash String? @unique
   status String @default("PENDING")
   id String @id @db.Uuid
   batchId String

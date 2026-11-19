@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import {ownerOrders} from "./owner-orders.ts";
 import {deviceRouter} from "./device.ts";
 import express from 'express';
@@ -116,8 +117,21 @@ app.get('/api/public/batches/:code',async(req,res)=>{
   res.json({offer:batch.offer,irrigations,code:batch.id,name:batch.name,farm:batch.zone.pump.farm.name,zone:batch.zone.name,startDate:batch.startDate,
     expectedHarvestDate:batch.expectedHarvestDate,source:'SIMULATION',history});
 });
+const digest=(token:string)=>createHash('sha256').update(token).digest('hex');
+app.get('/api/public/order-lookup',async(req,res)=>{
+  res.set('Cache-Control','no-store');
+  const token=req.headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
+  if(!token){res.sendStatus(404);return;}
+  const order=await db.preorder.findUnique({where:{lookupHash:digest(token)},select:{id:true,kg:true,priceVnd:true,status:true,
+    batchId:true,offer:{select:{batch:{select:{name:true}}}}}});
+  if(!order){res.sendStatus(404);return;}
+  const {offer,...receipt}=order;
+  res.json({...receipt,name:offer.batch.name,totalVnd:order.kg*order.priceVnd});
+});
 app.post('/api/public/batches/:code/preorders',express.json({limit:'2kb'}),async(req,res)=>{
-  const {id,kg}=req.body??{};
+  const {id,kg,lookupToken}=req.body??{};
+  if(lookupToken!==undefined && (typeof lookupToken!=='string'||!/^[a-f0-9]{64}$/.test(lookupToken))){res.sendStatus(400);return;}
+  const lookupHash=lookupToken?digest(lookupToken):null;
   if(typeof id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)||!Number.isSafeInteger(kg)||kg<1||kg>1000){res.sendStatus(400);return;}
   const batchId=req.params.code;
   const result=await db.$transaction(async tx=>{
@@ -125,13 +139,14 @@ app.post('/api/public/batches/:code/preorders',express.json({limit:'2kb'}),async
     const rows=await tx.$queryRaw<{priceVnd:number;remainingKg:number;open:boolean}[]>`SELECT o.* FROM "Offer" o JOIN "Batch" b ON b.id=o."batchId" WHERE b.published AND b.id=${batchId} FOR UPDATE OF o`;
     if(!rows.length)return {status:404};
     const prior=await tx.preorder.findUnique({where:{id}});
-    if(prior)return prior.batchId===batchId && prior.kg===kg?{status:200,order:prior}:{status:409};
+    if(prior)return prior.batchId===batchId && prior.kg===kg && prior.lookupHash===lookupHash?{status:200,order:prior}:{status:409};
     if(req.body.expectedPriceVnd!==undefined && req.body.expectedPriceVnd!==rows[0].priceVnd)return {status:412};
     if(!rows[0].open || rows[0].remainingKg<kg)return {status:409};
     await tx.offer.update({where:{batchId},data:{remainingKg:{decrement:kg}}});
-    const order=await tx.preorder.create({data:{id,batchId,kg,priceVnd:rows[0].priceVnd}});
+    const order=await tx.preorder.create({data:{id,batchId,kg,lookupHash,priceVnd:rows[0].priceVnd}});
     return {status:201,order};
   });
-  res.status(result.status).json(result.order??{error:'Không thể giữ số lượng yêu cầu'});
+  const receipt=result.order?{id:result.order.id,kg:result.order.kg,batchId:result.order.batchId,priceVnd:result.order.priceVnd}:null;
+  res.status(result.status).json(receipt??{error:'Không thể giữ số lượng yêu cầu'});
 });
 app.listen(Number(process.env.API_PORT ?? 4000));
