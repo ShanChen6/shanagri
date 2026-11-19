@@ -1,6 +1,7 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import {scenario, weather, simulate, days} from './day-one.ts';
+import {advance,enqueue,lockPump} from './queue.ts';
 const app = express();
 const db = new PrismaClient();
 app.get('/health/live', (_, res) => res.json({status:'ok'}));
@@ -39,6 +40,7 @@ app.post(['/api/farms/demo/simulation/day-one','/api/farms/demo/simulation/days/
       const last = z.simulatedDays[0];
       if (last?.simulatedDate.getTime() === simulatedDate.getTime()) continue;
       const result = simulate(last?.moisturePct ?? weather.initialPct,input.rainMm,input.dryingPoints,z.plantProfile.dryBelowPct);
+      if(result.needsWater) await enqueue(tx,z,"AUTO");
       await tx.simulatedDay.create({data:{zoneId:z.id,scenario,simulatedDate,...result}});
     }
     return 200;
@@ -48,8 +50,30 @@ app.post(['/api/farms/demo/simulation/day-one','/api/farms/demo/simulation/days/
 app.post('/api/farms/demo/simulation/reset', async (_, res) => {
   await db.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(527005)`;
+    const pumps=await tx.pump.findMany({where:{farmId:"demo"},orderBy:{id:"asc"}});
+    for(const pump of pumps) await lockPump(tx,pump.id);
+    await tx.irrigation.deleteMany({where:{pump:{farmId:"demo"}}});
     await tx.simulatedDay.deleteMany({where:{scenario,zone:{pump:{farmId:'demo'}}}});
   });
   res.sendStatus(204);
 });
+app.post('/api/farms/demo/zones/:id/irrigate',async(req,res)=>{
+  const job=await db.$transaction(async tx=>{
+    const z=await tx.zone.findFirst({where:{id:req.params.id,pump:{farmId:'demo'}}});
+    return z?enqueue(tx,z,'MANUAL'):null;
+  });
+  res.status(job?200:404).json(job);
+});
+app.get('/api/farms/demo/queue',async(_,res)=>{
+  res.json(await db.irrigation.findMany({where:{pump:{farmId:'demo'},status:{in:['RUNNING','PENDING']}},
+    include:{zone:{select:{name:true}},pump:{select:{name:true}}},orderBy:[{pumpId:'asc'},{id:'asc'}]}));
+});
+async function tick(){
+  try{
+    const pumps=await db.irrigation.findMany({where:{status:{in:['RUNNING','PENDING']}},distinct:['pumpId'],select:{pumpId:true}});
+    for(const {pumpId} of pumps) await db.$transaction(async tx=>{await lockPump(tx,pumpId); await advance(tx,pumpId);});
+  }catch(error){console.error('Irrigation worker:',error);}
+  finally{setTimeout(tick,1000).unref();}
+}
+void tick();
 app.listen(Number(process.env.API_PORT ?? 4000));

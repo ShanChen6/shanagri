@@ -1,3 +1,4 @@
+import Queue from "./queue";
 import Controls from './controls';
 export const dynamic = 'force-dynamic';
 type Day = {rainMm:number; simulatedDate:string; moisturePct:number; needsWater:boolean};
@@ -23,5 +24,6 @@ export default async function Home() {
             <table><thead><tr><th>Ngày</th><th>Thời tiết mô phỏng</th><th>Độ ẩm ước tính</th><th>Nhu cầu tưới</th></tr></thead>
             <tbody>{z.simulatedDays.map(d=><tr key={d.simulatedDate}><td>{d.simulatedDate.slice(0,10).split('-').reverse().join('/')}</td>
             <td>{d.rainMm ? 'Mưa '+d.rainMm+' mm' : 'Nắng'}</td><td>{d.moisturePct}%</td><td>{d.needsWater?'Cần tưới':'Chưa cần tưới'}</td></tr>)}</tbody></table></details>}</section>)}
+    <Queue/>
   </main>;
 }

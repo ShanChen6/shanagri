@@ -39,3 +39,13 @@ hoàn tất, chờ một giây trước bước kế tiếp. **Tạm dừng** ch
 xử lý hoàn tất. Đóng tab dừng bộ hẹn giờ; các ngày đã ghi vẫn còn.
 **Đặt lại** yêu cầu xác nhận và xóa lịch sử của kịch bản hiện tại trên
 trang trại demo dùng chung (POST /api/farms/demo/simulation/reset).
+
+## Hàng đợi tưới mô phỏng
+Chạy lại `npm run db:setup` sau khi cập nhật. Vùng thiếu ẩm tự gửi yêu cầu;
+có thể POST /api/farms/demo/zones/:id/irrigate để thử thủ công.
+GET /api/farms/demo/queue trả về các lượt đang tưới và đang chờ theo bơm.
+Mỗi lượt chạy 10 giây thời gian thực; worker kiểm tra mỗi giây. Yêu cầu
+trùng cho vùng còn trong hàng đợi trả lại lượt hiện có. Lượt chờ giữ
+nguyên thứ tự sau restart; nếu lượt đang chạy đã hết hạn, worker kết thúc
+lượt đó và bắt đầu lượt kế tiếp. Đặt lại mô phỏng xóa cả hàng đợi demo.
+Thời hạn này chỉ dùng cho bơm giả lập, chưa xác nhận trạng thái van thật.

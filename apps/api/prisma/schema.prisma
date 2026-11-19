@@ -11,6 +11,7 @@ model Farm {
   pumps Pump[]
 }
 model Pump {
+  irrigation Irrigation[]
   id String @id
   name String
   farmId String
@@ -24,6 +25,7 @@ model PlantProfile {
   zones Zone[]
 }
 model Zone {
+  irrigation Irrigation[]
   simulatedDays SimulatedDay[]
   id String @id
   name String
@@ -41,4 +43,16 @@ model SimulatedDay {
   needsWater Boolean
   zone Zone @relation(fields: [zoneId], references: [id])
   @@id([zoneId, scenario, simulatedDate])
+}
+
+model Irrigation {
+  id Int @id @default(autoincrement())
+  pumpId String
+  zoneId String
+  source String
+  status String @default("PENDING")
+  finishAt DateTime? @db.Timestamptz
+  pump Pump @relation(fields:[pumpId], references:[id])
+  zone Zone @relation(fields:[zoneId], references:[id])
+  @@index([pumpId,status,id],map:"irrigation_fifo")
 }
