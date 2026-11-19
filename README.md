@@ -25,3 +25,11 @@ Chạy lại `npm run db:setup` để áp dụng migration và bổ sung bản g
 GET http://localhost:4000/api/farms/demo/zones trả về hai vùng dùng chung Bơm chính.
 Các ngưỡng 50% và 25% chỉ là tham số demo. Nếu đổi cổng API, đặt API_BASE_URL
 trong môi trường của Next.js hoặc apps/web/.env.local.
+
+## Mô phỏng ngày đầu
+Sau khi cập nhật nhánh, chạy lại `npm run db:setup`. Mở dashboard và chọn
+**Chạy mô phỏng ngày đầu** (hoặc POST /api/farms/demo/simulation/day-one).
+Kịch bản dry-day-v1 dùng ngày cố định, thời tiết tổng hợp: 50% ban đầu,
+0 mm mưa, hao hụt 5 điểm. Mô hình demo cộng 1 điểm cho mỗi mm mưa, giới
+hạn kết quả trong 0–100%. Cam Sành cần tưới, Xương Rồng chưa cần tưới.
+Chạy lại cập nhật cùng bản ghi mỗi vùng; chưa điều khiển bơm.

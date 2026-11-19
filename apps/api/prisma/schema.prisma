@@ -24,10 +24,21 @@ model PlantProfile {
   zones Zone[]
 }
 model Zone {
+  simulatedDays SimulatedDay[]
   id String @id
   name String
   pumpId String
   pump Pump @relation(fields: [pumpId], references: [id])
   plantProfileId String
   plantProfile PlantProfile @relation(fields: [plantProfileId], references: [id])
+}
+
+model SimulatedDay {
+  zoneId String
+  scenario String
+  simulatedDate DateTime @db.Date
+  moisturePct Int
+  needsWater Boolean
+  zone Zone @relation(fields: [zoneId], references: [id])
+  @@id([zoneId, scenario, simulatedDate])
 }
