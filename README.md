@@ -128,3 +128,9 @@ Tại /chu-trang-trai/don, nhập tổng hạn mức mới (kg nguyên) khi dự
 lượng thay đổi. Đã giữ gồm đơn chờ và đơn xác nhận. Còn bán = tổng hạn mức
 trừ đã giữ. Có thể giảm về đúng số đã giữ; hệ thống từ chối giảm thấp hơn.
 Migration 0011 khôi phục tổng hạn mức từ lượng còn bán và các đơn chưa hủy.
+
+### Tạo lô nháp
+Vào /chu-trang-trai/don bằng mã chủ trang trại, nhập tên, vùng trồng và
+hai ngày rồi lưu. Ví dụ với dữ liệu seed: Cam Sành, 01/03–31/03/2026.
+Hai khoảng cùng vùng và cùng kịch bản không được chung ngày, kể cả ngày biên.
+Lô nháp chưa có tin bán và chỉ hiển thị trong danh sách riêng của chủ trại.

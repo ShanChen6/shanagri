@@ -1,5 +1,7 @@
 import express from 'express';
 import type {PrismaClient} from '@prisma/client';
+import {randomUUID} from 'node:crypto';
+import {scenario} from './day-one.ts';
 export function ownerOrders(db:PrismaClient){
   const router=express.Router();
   router.use((req,res,next)=>{
@@ -14,7 +16,32 @@ export function ownerOrders(db:PrismaClient){
     const rows=await db.preorder.findMany({where:scope,orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*25,take:26});
     const offers=await db.offer.findMany({where:{batch:{zone:{pump:{farmId:'demo'}}}},orderBy:{batchId:'asc'},
       select:{batchId:true,open:true,totalKg:true,remainingKg:true,priceVnd:true}});
-    res.json({offers:offers.map(o=>({...o,heldKg:o.totalKg-o.remainingKg})),orders:rows.slice(0,25),hasMore:rows.length>25});
+    const zones=await db.zone.findMany({where:{pump:{farmId:'demo'}},select:{id:true,name:true},orderBy:{name:'asc'}});
+    const drafts=await db.batch.findMany({where:{published:false,zone:{pump:{farmId:'demo'}}},orderBy:{startDate:'desc'},
+      select:{id:true,name:true,zoneId:true,startDate:true,expectedHarvestDate:true}});
+    res.json({zones,drafts,offers:offers.map(o=>({...o,heldKg:o.totalKg-o.remainingKg})),orders:rows.slice(0,25),hasMore:rows.length>25});
+  });
+  router.post('/drafts',express.json({limit:'4kb'}),async(req,res)=>{
+    const {name,zoneId,startDate,expectedHarvestDate}=req.body??{};
+    function valid(s:unknown):s is string {
+      if(typeof s!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(s)||s.startsWith('0000'))return false;
+      const d=new Date(s);return Number.isFinite(+d)&&d.toISOString().slice(0,10)===s;
+    }
+    if(typeof name!=='string'||!name.trim()||name.trim().length>120||typeof zoneId!=='string'||
+       !valid(startDate)||!valid(expectedHarvestDate)||expectedHarvestDate<startDate){
+      res.status(400).json({error:'Kiểm tra tên lô và khoảng ngày canh tác.'});return;
+    }
+    const result=await db.$transaction(async tx=>{
+      const zone=await tx.$queryRaw<{id:string}[]>`SELECT z.id FROM "Zone" z JOIN "Pump" p ON p.id=z."pumpId"
+        WHERE z.id=${zoneId} AND p."farmId"='demo' FOR UPDATE OF z`;
+      if(!zone.length)return {status:404,body:{error:'Không tìm thấy vùng trồng.'}};
+      const start=new Date(startDate),end=new Date(expectedHarvestDate);
+      const clash=await tx.batch.findFirst({where:{zoneId,scenario,startDate:{lte:end},expectedHarvestDate:{gte:start}}});
+      if(clash)return {status:409,body:{error:'Trùng lô '+clash.id+' ('+clash.startDate.toISOString().slice(0,10)+' – '+clash.expectedHarvestDate.toISOString().slice(0,10)+').'}};
+      const batch=await tx.batch.create({data:{id:'LO-'+randomUUID(),name:name.trim(),zoneId,scenario,startDate:start,expectedHarvestDate:end,published:false}});
+      return {status:201,body:{id:batch.id}};
+    });
+    res.status(result.status).json(result.body);
   });
   router.put('/offers/:code',express.json({limit:'1kb'}),async(req,res)=>{
     const {priceVnd,open,totalKg}=req.body??{};
