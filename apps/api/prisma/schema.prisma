@@ -94,6 +94,7 @@ model Batch {
 }
 
 model Offer {
+  closesAt DateTime? @db.Timestamptz
   batchId String @id
   batch Batch @relation(fields:[batchId],references:[id])
   totalKg Int

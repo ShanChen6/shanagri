@@ -15,7 +15,7 @@ export function ownerOrders(db:PrismaClient){
     if(!Number.isInteger(page)||page<1||page>100000){res.sendStatus(400);return;}
     const rows=await db.preorder.findMany({where:scope,orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*25,take:26});
     const offers=await db.offer.findMany({where:{batch:{zone:{pump:{farmId:'demo'}}}},orderBy:{batchId:'asc'},
-      select:{batchId:true,open:true,totalKg:true,remainingKg:true,priceVnd:true}});
+      select:{batchId:true,open:true,closesAt:true,totalKg:true,remainingKg:true,priceVnd:true}});
     const zones=await db.zone.findMany({where:{pump:{farmId:'demo'}},select:{id:true,name:true},orderBy:{name:'asc'}});
     const drafts=await db.batch.findMany({where:{published:false,zone:{pump:{farmId:'demo'}}},orderBy:{startDate:'desc'},
       select:{id:true,name:true,zoneId:true,startDate:true,expectedHarvestDate:true}});
@@ -44,7 +44,11 @@ export function ownerOrders(db:PrismaClient){
     res.status(result.status).json(result.body);
   });
   router.post('/drafts/:code/publish',express.json({limit:'1kb'}),async(req,res)=>{
-    const {priceVnd,totalKg}=req.body??{};
+    const {priceVnd,totalKg,closesAt:raw}=req.body??{};
+    const closesAt=raw==null?null:new Date(typeof raw==='string'?raw:NaN);
+    if(closesAt && (!Number.isFinite(+closesAt)||closesAt.toISOString()!==raw)){
+      res.status(400).json({error:'Hạn chốt không hợp lệ.'});return;
+    }
     if(![priceVnd,totalKg].every(n=>Number.isInteger(n)&&n>0&&n<=2147483647)){
       res.status(400).json({error:'Giá và hạn mức phải là số nguyên dương.'});return;
     }
@@ -55,11 +59,12 @@ export function ownerOrders(db:PrismaClient){
         WHERE b.id=${batchId} AND p."farmId"='demo' FOR UPDATE OF b`;
       if(!batch)return 404;
       if(batch.published)return 200;
-      await tx.offer.create({data:{batchId,priceVnd,totalKg,remainingKg:totalKg,open:true}});
+      if(closesAt && +closesAt<=Date.now())return 422;
+      await tx.offer.create({data:{batchId,priceVnd,totalKg,closesAt,remainingKg:totalKg,open:true}});
       await tx.batch.update({where:{id:batchId},data:{published:true}});
       return 201;
     });
-    res.status(status).json(status===404?{error:'Không tìm thấy lô.'}:{code:batchId});
+    res.status(status).json(status===422?{error:'Hạn chốt phải ở tương lai.'}:status===404?{error:'Không tìm thấy lô.'}:{code:batchId});
   });
   router.put('/offers/:code',express.json({limit:'1kb'}),async(req,res)=>{
     const {priceVnd,open,totalKg}=req.body??{};

@@ -12,7 +12,7 @@ export default function Order({code,remaining,price}:{code:string;remaining:numb
      secret.current ||= Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
      const res=await fetch('/api/preorder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,id:key.current,kg,expectedPriceVnd:price,lookupToken:secret.current})});
      if(res.ok){const o=await res.json();setMsg('Đã giữ '+o.kg+' kg. Mã đơn mẫu: '+o.id);L(location.origin+'/tra-cuu-don#'+secret.current);secret.current='';key.current='';}
-     else setMsg(res.status===412?'Giá đã thay đổi. Vui lòng xem giá mới trước khi đặt lại.':res.status===409?'Không đủ số lượng hoặc lô đã ngừng nhận đơn.':'Chưa xác nhận được đơn. Hãy thử lại.');
+     else setMsg(res.status===410?'Đã hết hạn nhận đơn.':res.status===412?'Giá đã thay đổi. Vui lòng xem giá mới trước khi đặt lại.':res.status===409?'Không đủ số lượng hoặc lô đã ngừng nhận đơn.':'Chưa xác nhận được đơn. Hãy thử lại.');
      router.refresh();
    }catch{setMsg('Chưa xác nhận được đơn. Hãy thử lại.');}
    finally{lock.current=false;setBusy(false);}

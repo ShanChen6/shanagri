@@ -1,6 +1,6 @@
 import Link from 'next/link';
 export const dynamic='force-dynamic';
-type Lot={code:string;name:string;farm:string;priceVnd:number;remainingKg:number;expectedHarvestDate:string};
+type Lot={closesAt:string|null;code:string;name:string;farm:string;priceVnd:number;remainingKg:number;expectedHarvestDate:string};
 export default async function Market({searchParams}:{searchParams:Promise<{sort?:string}>}){
   const sort=(await searchParams).sort==='price'?'price':'harvest';
   let lots:Lot[]|null=null;
@@ -17,6 +17,7 @@ export default async function Market({searchParams}:{searchParams:Promise<{sort?
     {lots.map(l=>{const href='/lo/'+encodeURIComponent(l.code);return <article key={l.code} style={{border:'1px solid #bfd2c5',borderRadius:12,padding:'1rem'}}>
       <small>{l.farm} · {l.code}</small><h2>{l.name}</h2><strong>{l.priceVnd.toLocaleString('vi-VN')} ₫/kg</strong>
       <p>Dự kiến thu hoạch: <time dateTime={l.expectedHarvestDate.slice(0,10)}>{l.expectedHarvestDate.slice(0,10).split('-').reverse().join('/')}</time></p>
+      {l.closesAt&&<p>Nhận đơn đến: {new Date(l.closesAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})} (giờ Việt Nam)</p>}
       <p>Còn nhận: {l.remainingKg} kg</p><Link href={href}>Truy xuất lô</Link> · <Link href={href+'#dat-truoc'}>Đặt trước</Link>
     </article>})}</div>}</main>;
 }

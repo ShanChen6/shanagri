@@ -98,10 +98,10 @@ void tick();
 app.get('/api/public/market',async(req,res)=>{
   const sort=req.query.sort??'harvest';
   if(sort!=='harvest' && sort!=='price'){res.sendStatus(400);return;}
-  const offers=await db.offer.findMany({where:{open:true,remainingKg:{gt:0},batch:{published:true}},
+  const offers=await db.offer.findMany({where:{open:true,OR:[{closesAt:null},{closesAt:{gt:new Date()}}],remainingKg:{gt:0},batch:{published:true}},
     orderBy:sort==='price'?[{priceVnd:'asc'},{batchId:'asc'}]:[{batch:{expectedHarvestDate:'asc'}},{batchId:'asc'}],
-    select:{batchId:true,priceVnd:true,remainingKg:true,batch:{select:{name:true,expectedHarvestDate:true,zone:{select:{pump:{select:{farm:{select:{name:true}}}}}}}}}});
-  res.set('Cache-Control','no-store').json(offers.map(o=>({code:o.batchId,name:o.batch.name,farm:o.batch.zone.pump.farm.name,
+    select:{batchId:true,closesAt:true,priceVnd:true,remainingKg:true,batch:{select:{name:true,expectedHarvestDate:true,zone:{select:{pump:{select:{farm:{select:{name:true}}}}}}}}}});
+  res.set('Cache-Control','no-store').json(offers.map(o=>({code:o.batchId,closesAt:o.closesAt,name:o.batch.name,farm:o.batch.zone.pump.farm.name,
     expectedHarvestDate:o.batch.expectedHarvestDate,priceVnd:o.priceVnd,remainingKg:o.remainingKg})));
 });
 app.get('/api/public/batches/:code',async(req,res)=>{
@@ -142,7 +142,9 @@ app.post('/api/public/batches/:code/preorders',express.json({limit:'2kb'}),async
     if(prior)return prior.batchId===batchId && prior.kg===kg && prior.lookupHash===lookupHash?{status:200,order:prior}:{status:409};
     if(req.body.expectedPriceVnd!==undefined && req.body.expectedPriceVnd!==rows[0].priceVnd)return {status:412};
     if(!rows[0].open || rows[0].remainingKg<kg)return {status:409};
-    await tx.offer.update({where:{batchId},data:{remainingKg:{decrement:kg}}});
+    const held=await tx.$executeRaw`UPDATE "Offer" SET "remainingKg"="remainingKg"-${kg} WHERE "batchId"=${batchId}
+      AND ("closesAt" IS NULL OR clock_timestamp()<"closesAt")`;
+    if(!held)return {status:410};
     const order=await tx.preorder.create({data:{id,batchId,kg,lookupHash,priceVnd:rows[0].priceVnd}});
     return {status:201,order};
   });

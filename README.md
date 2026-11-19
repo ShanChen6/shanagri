@@ -146,3 +146,9 @@ Sau khi đặt qua web, khách lưu liên kết riêng ở phần xác nhận đ
 tại /tra-cuu-don. Ai giữ liên kết đều có thể đọc đơn tương ứng. Token ngẫu nhiên
 nằm sau dấu # và được gửi đến API qua Authorization; PostgreSQL chỉ lưu SHA-256.
 Đơn cũ chưa có liên kết không được cấp quyền tra cứu chỉ từ mã đơn.
+
+Khi công bố lô có thể nhập hạn chốt theo giờ Việt Nam (UTC+7), độc lập
+với ngày mô phỏng. Trường closesAt của API nhận ISO UTC dạng
+YYYY-MM-DDTHH:mm:ss.sssZ hoặc null. Kể từ hạn chốt lô rời chợ và đơn mới
+không thể giữ chỗ. Lô cũ mặc định không có hạn; tra cứu và xử lý đơn cũ
+vẫn hoạt động.

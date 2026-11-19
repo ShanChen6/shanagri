@@ -1,7 +1,7 @@
 import Order from "./order";
 import {notFound} from 'next/navigation';
 export const dynamic='force-dynamic';
-type Trace={offer:{remainingKg:number;priceVnd:number;open:boolean}|null;name:string;code:string;farm:string;zone:string;startDate:string;expectedHarvestDate:string;
+type Trace={offer:{closesAt:string|null;remainingKg:number;priceVnd:number;open:boolean}|null;name:string;code:string;farm:string;zone:string;startDate:string;expectedHarvestDate:string;
   irrigations:{id:number;source:string;requestDay:string;completedAt:string;estimatedLiters:number|null}[];
   history:{simulatedDate:string;moisturePct:number;needsWater:boolean}[]};
 const date=(iso:string)=>iso.slice(0,10).split('-').reverse().join('/');
@@ -12,9 +12,12 @@ export default async function BatchPage({params}:{params:Promise<{code:string}>}
   if(res.status===404) notFound();
   if(!res.ok)throw Error('Không tải được thông tin lô');
   const b:Trace=await res.json();
+  const expired=!!b.offer?.closesAt && Date.parse(b.offer.closesAt)<=Date.now();
   return <main><a href="/cho-nong-san">Chợ nông sản</a><h1>{b.name}</h1><p>Mã lô: {b.code} · {b.farm} · {b.zone}</p>
     <p>Bắt đầu: {date(b.startDate)} · Dự kiến thu hoạch: {date(b.expectedHarvestDate)}</p>
-    {b.offer?.open && <div id="dat-truoc"><Order code={b.code} price={b.offer.priceVnd} remaining={b.offer.remainingKg}/></div>}
+    {b.offer?.closesAt && <p>Nhận đơn đến: {new Date(b.offer.closesAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})} (giờ Việt Nam)</p>}
+    {expired && <p>Lô đã hết hạn nhận đặt trước.</p>}
+    {!expired && b.offer?.open && <div id="dat-truoc"><Order code={b.code} price={b.offer.priceVnd} remaining={b.offer.remainingKg}/></div>}
     {b.offer && !b.offer.open && <p>Lô đang tạm dừng nhận đặt trước.</p>}
     <h2>Nhật ký độ ẩm mô phỏng</h2><p>Dữ liệu ước tính từ kịch bản thời tiết giả lập.</p>
     {!b.history.length?<p>Chưa có ngày mô phỏng cho lô này.</p>:
