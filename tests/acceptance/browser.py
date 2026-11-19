@@ -51,4 +51,22 @@ with sync_playwright() as pw:
     for buyer, ordered, assigned in zip(buyers,[30,25,25],[30,25,10]):
         buyer.reload()
         expect(buyer.get_by_text(f"Đã đặt: {ordered} kg · Được phân bổ: {assigned} kg")).to_be_visible()
+    # Both independent tabs initially saw 35 kg on the February fixture.
+    first, late = browser.new_page(), browser.new_page()
+    for tab in (first, late):
+        tab.goto(BASE + "/lo/CAM-2026-02")
+        expect(tab.get_by_label("Số kg")).to_have_attribute("max", "35")
+        tab.get_by_label("Số kg").fill("25")
+    first.get_by_role("button", name="Giữ chỗ").click()
+    expect(first.get_by_role("link", name="Tra cứu đơn vừa đặt")).to_be_visible()
+    # The next poll can already have prevented submission client-side.
+    submit = late.get_by_role("button", name="Giữ chỗ")
+    if submit.is_enabled():
+        submit.evaluate("(button) => button.click()")
+    expect(late.get_by_label("Số kg")).to_have_attribute("max", "10", timeout=20000)
+    expect(late.get_by_label("Số kg")).to_have_value("25")
+    expect(late.get_by_role("link", name="Tra cứu đơn vừa đặt")).to_have_count(0)
+    late.get_by_label("Số kg").fill("10")
+    submit.click()
+    expect(late.get_by_role("link", name="Tra cứu đơn vừa đặt")).to_be_visible()
     browser.close()

@@ -136,12 +136,14 @@ app.post('/api/public/batches/:code/preorders',express.json({limit:'2kb'}),async
   const batchId=req.params.code;
   const result=await db.$transaction(async tx=>{
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${id.toLowerCase()}))`;
-    const rows=await tx.$queryRaw<{priceVnd:number;remainingKg:number;open:boolean}[]>`SELECT o.* FROM "Offer" o JOIN "Batch" b ON b.id=o."batchId" WHERE b.published AND b.id=${batchId} FOR UPDATE OF o`;
+    const rows=await tx.$queryRaw<{priceVnd:number;remainingKg:number;open:boolean;closesAt:Date|null}[]>`SELECT o.* FROM "Offer" o JOIN "Batch" b ON b.id=o."batchId" WHERE b.published AND b.id=${batchId} FOR UPDATE OF o`;
     if(!rows.length)return {status:404};
     const prior=await tx.preorder.findUnique({where:{id}});
     if(prior)return prior.batchId===batchId && prior.kg===kg && prior.lookupHash===lookupHash?{status:200,order:prior}:{status:409};
     if(req.body.expectedPriceVnd!==undefined && req.body.expectedPriceVnd!==rows[0].priceVnd)return {status:412};
-    if(!rows[0].open || rows[0].remainingKg<kg)return {status:409};
+    if(!rows[0].open)return {status:409};
+    if(rows[0].closesAt && rows[0].closesAt.getTime()<=Date.now())return {status:410};
+    if(rows[0].remainingKg<kg)return {status:409,available:rows[0].remainingKg};
     const held=await tx.$executeRaw`UPDATE "Offer" SET "remainingKg"="remainingKg"-${kg} WHERE "batchId"=${batchId}
       AND ("closesAt" IS NULL OR clock_timestamp()<"closesAt")`;
     if(!held)return {status:410};
@@ -149,6 +151,6 @@ app.post('/api/public/batches/:code/preorders',express.json({limit:'2kb'}),async
     return {status:201,order};
   });
   const receipt=result.order?{id:result.order.id,kg:result.order.kg,batchId:result.order.batchId,priceVnd:result.order.priceVnd}:null;
-  res.status(result.status).json(receipt??{error:'Không thể giữ số lượng yêu cầu'});
+  res.status(result.status).json(receipt??(result.available!==undefined?{error:'INSUFFICIENT_STOCK',remainingKg:result.available}:{error:'Không thể giữ số lượng yêu cầu'}));
 });
 app.listen(Number(process.env.API_PORT ?? 4000));

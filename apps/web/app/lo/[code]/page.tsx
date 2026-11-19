@@ -1,3 +1,4 @@
+import StockRefresh from "../../stock-refresh";
 import Order from "./order";
 import {notFound} from 'next/navigation';
 export const dynamic='force-dynamic';
@@ -13,7 +14,7 @@ export default async function BatchPage({params}:{params:Promise<{code:string}>}
   if(!res.ok)throw Error('Không tải được thông tin lô');
   const b:Trace=await res.json();
   const expired=!!b.offer?.closesAt && Date.parse(b.offer.closesAt)<=Date.now();
-  return <main><a href="/cho-nong-san">Chợ nông sản</a><h1>{b.name}</h1><p>Mã lô: {b.code} · {b.farm} · {b.zone}</p>
+  return <main><a href="/cho-nong-san">Chợ nông sản</a><StockRefresh/><h1>{b.name}</h1><p>Mã lô: {b.code} · {b.farm} · {b.zone}</p>
     <p>Bắt đầu: {date(b.startDate)} · Dự kiến thu hoạch: {date(b.expectedHarvestDate)}</p>
     {b.offer?.closesAt && <p>Nhận đơn đến: {new Date(b.offer.closesAt).toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh'})} (giờ Việt Nam)</p>}
     {expired && <p>Lô đã hết hạn nhận đặt trước.</p>}

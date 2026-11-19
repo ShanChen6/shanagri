@@ -42,3 +42,21 @@ for(const [i,o] of orders.entries()){
  assert.deepEqual([receipt.id,receipt.kg,receipt.allocatedKg,receipt.totalVnd,receipt.status],[o.id,o.kg,assigned[i],o.kg*37000,'CONFIRMED']);
 }
 console.log('PASS: irrigation trace, publish, 3 reservations, harvest, one finalization and 3 private receipts');
+
+// Two buyers saw the same 35 kg. No partial reservation on stale quantity.
+const stockCode='CAM-2026-02',stockLot='public/batches/'+stockCode;
+assert.equal((await admin('/offers/'+stockCode,'PUT',{totalKg:35})).status,204);
+const request=kg=>({id:randomUUID(),kg,lookupToken:randomBytes(32).toString('hex')});
+const buy=o=>call(stockLot+'/preorders','POST',o),a=request(25),second=request(25);
+assert.equal((await buy(a)).status,201);
+const refused=await buy(second);assert.equal(refused.status,409);
+assert.deepEqual(await refused.json(),{error:'INSUFFICIENT_STOCK',remainingKg:10});
+assert.equal((await read(await call(stockLot))).offer.remainingKg,10);
+assert.equal((await call('public/order-lookup','GET',undefined,'Bearer '+second.lookupToken)).status,404);
+assert.equal((await market()).find(x=>x.code===stockCode).remainingKg,10);
+assert.equal((await buy({...second,kg:10})).status,201);
+assert.equal((await read(await call(stockLot))).offer.remainingKg,0);
+assert.ok(!(await market()).some(x=>x.code===stockCode));
+console.log('PASS: stale 25 kg request rejected; buyer explicitly selected the remaining 10 kg');
+// Leave the shared acceptance stack without pending orders for the browser suite.
+for(const o of [a,second])assert.equal((await admin('/'+o.id+'/cancel','POST')).status,204);

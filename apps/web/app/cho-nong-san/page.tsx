@@ -1,3 +1,4 @@
+import StockRefresh from "../stock-refresh";
 import Link from 'next/link';
 export const dynamic='force-dynamic';
 type Lot={closesAt:string|null;code:string;name:string;farm:string;priceVnd:number;remainingKg:number;expectedHarvestDate:string};
@@ -10,7 +11,7 @@ export default async function Market({searchParams}:{searchParams:Promise<{sort?
     if(r.ok)lots=await r.json();
   }catch{}
   return <main style={{maxWidth:'68rem',margin:'2rem auto',padding:'0 1rem'}}>
-    <h1>Chợ nông sản</h1><p>Chọn lô theo giá và ngày thu hoạch dự kiến. Đây là chợ thử nghiệm, không thu tiền.</p>
+    <StockRefresh/><h1>Chợ nông sản</h1><p>Chọn lô theo giá và ngày thu hoạch dự kiến. Đây là chợ thử nghiệm, không thu tiền.</p>
     <nav aria-label="Sắp xếp lô">Sắp xếp: <Link aria-current={sort==='harvest'?'page':undefined} href="?sort=harvest">Thu hoạch sớm nhất</Link> · <Link aria-current={sort==='price'?'page':undefined} href="?sort=price">Giá thấp nhất</Link></nav>
     {lots===null?<p>Không tải được chợ. <a href={'?sort='+sort}>Thử lại</a></p>:!lots.length?<p>Hiện chưa có lô nhận đặt trước.</p>:
     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,16rem),1fr))',gap:'1rem',marginTop:'1rem'}}>

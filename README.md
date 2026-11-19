@@ -183,3 +183,8 @@ chạy db:setup, khởi động API và web ở cổng 4000/3000. Chạy
 workflow và chạy `python tests/acceptance/browser.py`. Tạo lại database thử
 riêng trước khi chạy lại. API kiểm tra cả hàng đợi và nhật ký tưới; browser
 đi qua giao diện chủ trại và ba phiên khách độc lập.
+
+Số kg trên chợ và trang lô là số còn nhận đặt, được tải lại mỗi 10 giây
+khi tab hiển thị và khi quay lại tab. Khi khách gửi đơn từ trang cũ, API
+kiểm tra lại trong giao dịch. Nếu không đủ, trả 409 INSUFFICIENT_STOCK kèm
+remainingKg; khách tự chọn lại số kg. Không tự động tạo đơn một phần.
