@@ -42,7 +42,7 @@ app.post(['/api/farms/demo/simulation/day-one','/api/farms/demo/simulation/days/
       const last = z.simulatedDays[0];
       if (last?.simulatedDate.getTime() === simulatedDate.getTime()) continue;
       const result = simulate(last?.moisturePct ?? weather.initialPct,input.rainMm,input.dryingPoints,z.plantProfile.dryBelowPct);
-      if(result.needsWater) await enqueue(tx,z,"AUTO");
+      if(result.needsWater) await enqueue(tx,z,"AUTO",scenario,simulatedDate);
       await tx.simulatedDay.create({data:{zoneId:z.id,scenario,simulatedDate,...result}});
     }
     return 200;
@@ -64,7 +64,9 @@ app.post('/api/farms/demo/simulation/reset', async (_, res) => {
 app.post('/api/farms/demo/zones/:id/irrigate',async(req,res)=>{
   const job=await db.$transaction(async tx=>{
     const z=await tx.zone.findFirst({where:{id:req.params.id,pump:{farmId:'demo'}}});
-    return z?enqueue(tx,z,'MANUAL'):null;
+    if(!z)return null;
+    const latest=await tx.simulatedDay.findFirst({where:{zoneId:z.id,scenario},orderBy:{simulatedDate:'desc'}});
+    return enqueue(tx,z,'MANUAL',scenario,latest?.simulatedDate??new Date(days[0].date+'T00:00:00Z'));
   });
   res.status(job?200:404).json(job);
 });
@@ -96,7 +98,11 @@ app.get('/api/public/batches/:code',async(req,res)=>{
   const history=await db.simulatedDay.findMany({where:{zoneId:batch.zoneId,scenario:batch.scenario,
     simulatedDate:{gte:batch.startDate,lte:batch.expectedHarvestDate}},orderBy:{simulatedDate:'asc'},
     select:{simulatedDate:true,moisturePct:true,needsWater:true}});
-  res.json({code:batch.id,name:batch.name,farm:batch.zone.pump.farm.name,zone:batch.zone.name,startDate:batch.startDate,
+  const completed=await db.irrigation.findMany({where:{batchId:batch.id,status:'DONE'},orderBy:{id:'asc'},
+    select:{id:true,source:true,requestDay:true,closedAt:true,finishAt:true,estimatedMl:true}});
+  const irrigations=completed.map(r=>({id:r.id,source:r.source,requestDay:r.requestDay,completedAt:r.closedAt??r.finishAt,
+    estimatedLiters:r.estimatedMl===null?null:Number(r.estimatedMl)/1000}));
+  res.json({irrigations,code:batch.id,name:batch.name,farm:batch.zone.pump.farm.name,zone:batch.zone.name,startDate:batch.startDate,
     expectedHarvestDate:batch.expectedHarvestDate,source:'SIMULATION',history});
 });
 app.listen(Number(process.env.API_PORT ?? 4000));

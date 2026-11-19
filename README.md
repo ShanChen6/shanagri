@@ -87,3 +87,10 @@ Chạy db:setup để tạo lô CAM-2026-01. Mở /lo/CAM-2026-01 hoặc GET
 /api/public/batches/CAM-2026-01. Chỉ lô đã công bố được trả về. Nhật ký
 là dữ liệu chạy thử theo vùng, kịch bản và khoảng ngày của lô; reset mô phỏng
 cũng làm trống nhật ký demo. Nhu cầu tưới không có nghĩa là đã tưới.
+
+Mỗi lượt tưới mới lưu ngày yêu cầu theo lịch mô phỏng và mã lô nếu có đúng
+một lô khớp vùng, kịch bản và khoảng ngày. Lệnh thủ công dùng ngày mô phỏng
+gần nhất của vùng (ngày đầu nếu chưa chạy). Nếu không có lô hoặc có nhiều
+lô khớp, lượt vẫn chạy nhưng không công bố dưới bất kỳ lô nào. Yêu cầu
+trùng không thay đổi liên kết ban đầu; dữ liệu cũ không được gán hồi tố.
+Trang lô chỉ hiển thị lượt DONE và để trống ước tính nếu thiếu dữ liệu.

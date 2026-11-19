@@ -49,6 +49,10 @@ model SimulatedDay {
 }
 
 model Irrigation {
+  batchId String?
+  batch Batch? @relation(fields:[batchId],references:[id],onDelete:Restrict)
+  requestDay DateTime? @db.Date
+  @@index([batchId,status],map:"irrigation_batch_status")
   requiresValveAck Boolean @default(false)
   closedAt DateTime? @db.Timestamptz
   startedAt DateTime? @db.Timestamptz
@@ -77,6 +81,7 @@ model VirtualReading {
 }
 
 model Batch {
+  irrigation Irrigation[]
   id String @id
   zoneId String
   zone Zone @relation(fields:[zoneId],references:[id])
