@@ -1,0 +1,22 @@
+:root {
+  --brand-ink: #023115;
+  --brand-green: #03642c;
+  --brand-leaf: #8dcf1c;
+  --status-waiting: #79500e;
+  --status-closed: #545550;
+  --status-confirmed: var(--brand-green);
+  --heading: var(--brand-ink);
+  --action: var(--brand-green);
+  --focus-ring: var(--brand-green);
+  --accent-line: var(--brand-leaf);
+  --foreground: #262724;
+  --foreground-disabled: #73736f;
+  --field-error: #9b241d;
+  --surface-hover: #f1f0ed;
+  --control-border: #83837d;
+  --radius-card: .75rem;
+  --radius-control: .4rem;
+  --canvas: #faf9f6;
+  --surface: #fff;
+  --line: #d5d4ce;
+}

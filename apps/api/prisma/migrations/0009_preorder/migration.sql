@@ -1,0 +1,2 @@
+CREATE TABLE "Offer" ("batchId" text PRIMARY KEY REFERENCES "Batch"(id), "remainingKg" integer NOT NULL CHECK ("remainingKg">=0), "priceVnd" integer NOT NULL CHECK ("priceVnd">0), "open" boolean NOT NULL DEFAULT true);
+CREATE TABLE "Preorder" (id uuid PRIMARY KEY, "batchId" text NOT NULL REFERENCES "Offer"("batchId"), kg integer NOT NULL CHECK (kg>0), "priceVnd" integer NOT NULL, "createdAt" timestamptz NOT NULL DEFAULT now());

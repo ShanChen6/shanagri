@@ -1,0 +1,1 @@
+{"name":"@shanagri/web","private":true,"scripts":{"dev":"next dev","build":"next build"},"dependencies":{"next":"^16.2.0","react":"^19.2.0","react-dom":"^19.2.0"},"devDependencies":{"typescript":"^5.9.0","@types/react":"^19","@types/node":"^24"}}

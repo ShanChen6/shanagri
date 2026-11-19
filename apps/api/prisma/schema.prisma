@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+model Farm {
+  id String @id
+  name String
+  pumps Pump[]
+}
+model Pump {
+  flowMlPerSecond Int @default(100)
+  irrigation Irrigation[]
+  id String @id
+  name String
+  farmId String
+  farm Farm @relation(fields: [farmId], references: [id])
+  zones Zone[]
+}
+model PlantProfile {
+  id String @id
+  name String
+  dryBelowPct Int
+  zones Zone[]
+}
+model Zone {
+  batches Batch[]
+  virtualReadings VirtualReading[]
+  irrigation Irrigation[]
+  simulatedDays SimulatedDay[]
+  id String @id
+  name String
+  pumpId String
+  pump Pump @relation(fields: [pumpId], references: [id])
+  plantProfileId String
+  plantProfile PlantProfile @relation(fields: [plantProfileId], references: [id])
+}
+
+model SimulatedDay {
+  zoneId String
+  scenario String
+  simulatedDate DateTime @db.Date
+  moisturePct Int
+  needsWater Boolean
+  zone Zone @relation(fields: [zoneId], references: [id])
+  @@id([zoneId, scenario, simulatedDate])
+}
+
+model Irrigation {
+  batchId String?
+  batch Batch? @relation(fields:[batchId],references:[id],onDelete:Restrict)
+  requestDay DateTime? @db.Date
+  @@index([batchId,status],map:"irrigation_batch_status")
+  requiresValveAck Boolean @default(false)
+  closedAt DateTime? @db.Timestamptz
+  startedAt DateTime? @db.Timestamptz
+  flowMlPerSecond Int?
+  estimatedMl BigInt?
+  @@index([zoneId,status,finishAt],map:"irrigation_history")
+  id Int @id @default(autoincrement())
+  pumpId String
+  zoneId String
+  source String
+  status String @default("PENDING")
+  finishAt DateTime? @db.Timestamptz
+  pump Pump @relation(fields:[pumpId], references:[id])
+  zone Zone @relation(fields:[zoneId], references:[id])
+  @@index([pumpId,status,id],map:"irrigation_fifo")
+}
+
+model VirtualReading {
+  sampleId String @id @db.Uuid
+  zoneId String
+  zone Zone @relation(fields:[zoneId],references:[id])
+  observedAt DateTime @db.Timestamptz
+  receivedAt DateTime @default(now()) @db.Timestamptz
+  moisturePct Int
+  @@index([zoneId,observedAt],map:"virtual_zone_time")
+}
+
+model Batch {
+  offer Offer?
+  irrigation Irrigation[]
+  id String @id
+  zoneId String
+  zone Zone @relation(fields:[zoneId],references:[id])
+  name String
+  scenario String
+  startDate DateTime @db.Date
+  expectedHarvestDate DateTime @db.Date
+  published Boolean @default(false)
+}
+
+model Offer {
+  allocatedAt DateTime? @db.Timestamptz
+  harvestDate DateTime? @db.Date
+  actualKg Int?
+  closesAt DateTime? @db.Timestamptz
+  batchId String @id
+  batch Batch @relation(fields:[batchId],references:[id])
+  totalKg Int
+  remainingKg Int
+  priceVnd Int
+  open Boolean @default(true)
+  orders Preorder[]
+}
+model Preorder {
+  cancelDecision String?
+  expiresAt DateTime? @db.Timestamptz
+  phoneHash String?
+  otpHash String?
+  attempts Int @default(0)
+  sentAt DateTime? @db.Timestamptz
+  sends Int @default(0)
+  cancelRequested Boolean @default(false)
+  @@index([status,expiresAt],map:"hold_expiry")
+  @@index([phoneHash,createdAt],map:"phone_orders")
+  allocatedKg Int?
+  packedAt DateTime? @db.Timestamptz
+  deliveredAt DateTime? @db.Timestamptz
+  lookupHash String? @unique
+  status String @default("PENDING")
+  id String @id @db.Uuid
+  batchId String
+  offer Offer @relation(fields:[batchId],references:[batchId])
+  kg Int
+  priceVnd Int
+  createdAt DateTime @default(now()) @db.Timestamptz
+}
