@@ -1,0 +1,70 @@
+.ui-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); padding: 1.25rem; }
+.ui-card h2 { border-inline-start: .2rem solid var(--accent-line); padding-inline-start: .6rem; }
+.ui-button, .ui-field :is(input, select) { background: var(--surface); border-radius: var(--radius-control); padding: .55rem .85rem; min-height: 2.75rem; font: inherit; }
+.ui-button { color: var(--action); border: 1px solid currentColor; cursor: pointer; }
+.ui-button:hover:enabled { background: var(--surface-hover); }
+.ui-button:disabled { color: var(--foreground-disabled); cursor: default; }
+.ui-field { display: grid; gap: .3rem; max-width: 24rem; margin-block: .75rem; }
+.ui-field :is(input, select) { min-width: 0; border: 1px solid var(--control-border); }
+.button-quiet { border-color: transparent; text-decoration: underline; }
+.button-sm { min-height: 2.25rem; padding: .35rem .65rem; }
+.table-scroll { overflow-x: auto; margin-block: 1rem; }
+.table-scroll table { width: 100%; border-collapse: collapse; background: var(--surface); }
+.table-scroll th, .table-scroll td { text-align: start; padding: .65rem .8rem; border-bottom: 1px solid var(--line); }
+.table-scroll th { color: var(--heading); }
+
+.ui-card + .ui-card { margin-block-start: 1rem; }
+.ui-button[aria-pressed="true"] { font-weight: 700; text-decoration: underline; }
+
+.state-panel { margin-block: 1rem; }
+.state-panel > :first-child { margin-block-start: 0; }
+.state-panel > :last-child { margin-block-end: 0; }
+.state-panel-actions,
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem .75rem;
+}
+.pagination-actions { margin-block-start: 1rem; }
+.record-id { overflow-wrap: anywhere; }
+.page-container fieldset { min-inline-size: 0; }
+
+.order-status {
+  display: inline-block;
+  padding: .125rem .55rem;
+  border: 1px solid currentColor;
+  border-radius: 1rem;
+  background: var(--surface);
+  font-size: .875rem;
+  font-weight: 600;
+}
+.order-status-waiting { color: var(--status-waiting); }
+.order-status-closed { color: var(--status-closed); }
+.order-status-confirmed { color: var(--status-confirmed); }
+
+.field-hint, .field-error { font-size: .875rem; }
+.field-hint { color: var(--foreground); }
+.field-error { color: var(--field-error); }
+.ui-field input[aria-invalid="true"] { border-color: var(--field-error); }
+
+.allocation-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: .75rem;
+}
+.allocation-summary > div {
+  padding: .75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+.allocation-summary dd { margin: .25rem 0 0; color: var(--heading); font-weight: 700; }
+
+.fulfillment-queue {
+  margin-block: 1rem;
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+.fulfillment-queue h3 { margin-block-start: 0; }

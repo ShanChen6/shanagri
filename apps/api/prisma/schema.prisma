@@ -118,6 +118,8 @@ model Preorder {
   @@index([status,expiresAt],map:"hold_expiry")
   @@index([phoneHash,createdAt],map:"phone_orders")
   allocatedKg Int?
+  packedAt DateTime? @db.Timestamptz
+  deliveredAt DateTime? @db.Timestamptz
   lookupHash String? @unique
   status String @default("PENDING")
   id String @id @db.Uuid

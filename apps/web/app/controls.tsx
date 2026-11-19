@@ -1,4 +1,5 @@
 'use client';
+import { Button, StatusMessage } from '../components/ui';
 import { useState,useEffect,useRef,useCallback } from 'react';
 import { changeSimulation } from './actions';
 export default function Controls({count,total}:{count:number;total:number}) {
@@ -20,9 +21,9 @@ export default function Controls({count,total}:{count:number;total:number}) {
     return ()=>clearTimeout(timer);
   },[auto,busy,count,total,change]);
   return <div>
-    <button disabled={auto||busy||count>=total} onClick={()=>void change(count+1)}>Chạy ngày {Math.min(count+1,total)||1}</button>{' '}
-    <button disabled={!auto && (busy||count>=total)} onClick={()=>setAuto(v=>!v)}>{auto?'Tạm dừng':'Chạy tự động'}</button>{' '}
-    <button disabled={auto||busy||!count} onClick={()=>{if(window.confirm('Xóa hàng đợi tưới và lịch sử mô phỏng của trang trại mẫu và trở về ngày 0?')) void change('reset');}}>Đặt lại</button>
-    <p role="status">{error || (total && count===total?'Đã hoàn tất mô phỏng.':auto?'Đang chạy tự động…':busy?'Đang cập nhật…':'')}</p>
+    <Button disabled={auto||busy||count>=total} onClick={()=>void change(count+1)}>Chạy ngày {Math.min(count+1,total)||1}</Button>{' '}
+    <Button disabled={!auto && (busy||count>=total)} onClick={()=>setAuto(v=>!v)}>{auto?'Tạm dừng':'Chạy tự động'}</Button>{' '}
+    <Button disabled={auto||busy||!count} onClick={()=>{if(window.confirm('Xóa hàng đợi tưới và lịch sử mô phỏng của trang trại mẫu và trở về ngày 0?')) void change('reset');}}>Đặt lại</Button>
+    <StatusMessage>{error || (total && count===total?'Đã hoàn tất mô phỏng.':auto?'Đang chạy tự động…':busy?'Đang cập nhật…':'')}</StatusMessage>
   </div>;
 }

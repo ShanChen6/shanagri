@@ -101,7 +101,10 @@ void tick();
 app.get('/api/public/market',async(req,res)=>{
   const sort=req.query.sort??'harvest';
   if(sort!=='harvest' && sort!=='price'){res.sendStatus(400);return;}
-  const offers=await db.offer.findMany({where:{open:true,OR:[{closesAt:null},{closesAt:{gt:new Date()}}],remainingKg:{gt:0},batch:{published:true}},
+  const includeSoldOut=req.query.includeSoldOut;
+  if(includeSoldOut!==undefined && includeSoldOut!=='1'){res.sendStatus(400);return;}
+  const offers=await db.offer.findMany({where:{open:true,OR:[{closesAt:null},{closesAt:{gt:new Date()}}],
+    ...(includeSoldOut==='1'?{}:{remainingKg:{gt:0}}),batch:{published:true}},
     orderBy:sort==='price'?[{priceVnd:'asc'},{batchId:'asc'}]:[{batch:{expectedHarvestDate:'asc'}},{batchId:'asc'}],
     select:{batchId:true,closesAt:true,priceVnd:true,remainingKg:true,batch:{select:{name:true,expectedHarvestDate:true,zone:{select:{pump:{select:{farm:{select:{name:true}}}}}}}}}});
   res.set('Cache-Control','no-store').json(offers.map(o=>({code:o.batchId,closesAt:o.closesAt,name:o.batch.name,farm:o.batch.zone.pump.farm.name,
@@ -125,7 +128,7 @@ app.get('/api/public/order-lookup',async(req,res)=>{
   res.set('Cache-Control','no-store');
   const token=req.headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
   if(!token){res.sendStatus(404);return;}
-  const order=await db.preorder.findUnique({where:{lookupHash:digest(token)},select:{expiresAt:true,cancelRequested:true,cancelDecision:true,allocatedKg:true,id:true,kg:true,priceVnd:true,status:true,
+  const order=await db.preorder.findUnique({where:{lookupHash:digest(token)},select:{expiresAt:true,cancelRequested:true,cancelDecision:true,allocatedKg:true,packedAt:true,deliveredAt:true,id:true,kg:true,priceVnd:true,status:true,
     batchId:true,offer:{select:{batch:{select:{name:true}}}}}});
   if(!order){res.sendStatus(404);return;}
   const {offer,...receipt}=order;

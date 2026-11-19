@@ -1,4 +1,5 @@
 'use client';
+import { Card, StatusMessage } from '../components/ui';
 import {useEffect,useState} from 'react';
 type Job={id:number;status:string;requiresValveAck:boolean;finishAt:string|null;zone:{name:string};pump:{name:string}};
 export default function Queue(){
@@ -15,6 +16,6 @@ export default function Queue(){
     }
     void poll();return ()=>{abort.abort();clearTimeout(timer);};
   },[]);
-  return <section><h2>Hàng đợi tưới</h2>{failed?<p>Không tải được hàng đợi.</p>:jobs===null?<p>Đang tải…</p>:jobs.length?
-    <ol>{jobs.map(j=><li key={j.id}>{j.pump.name} · {j.zone.name}: {j.status==='RUNNING'?(j.requiresValveAck?(j.finishAt && Date.parse(j.finishAt)<=Date.now()?'Chờ xác nhận đóng van':'Đã cấp lượt cho van ảo'):'Đang tưới'):'Đang chờ'}</li>)}</ol>:<p>Không có lượt tưới đang chờ hoặc đang chạy.</p>}</section>;
+  return <Card as="section"><h2>Hàng đợi tưới</h2>{failed?<StatusMessage>Không tải được hàng đợi.</StatusMessage>:jobs===null?<StatusMessage>Đang tải…</StatusMessage>:jobs.length?
+    <ol>{jobs.map(j=><li key={j.id}>{j.pump.name} · {j.zone.name}: {j.status==='RUNNING'?(j.requiresValveAck?(j.finishAt && Date.parse(j.finishAt)<=Date.now()?'Chờ xác nhận đóng van':'Đã cấp lượt cho van ảo'):'Đang tưới'):'Đang chờ'}</li>)}</ol>:<StatusMessage>Không có lượt tưới đang chờ hoặc đang chạy.</StatusMessage>}</Card>;
 }

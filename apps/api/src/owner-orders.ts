@@ -1,9 +1,21 @@
 import express from 'express';
-import type {PrismaClient} from '@prisma/client';
+import type {Prisma,PrismaClient} from '@prisma/client';
 import {createHash,randomUUID} from 'node:crypto';
 import {scenario} from './day-one.ts';
-function version(code:string,kg:number,orders:{id:string;kg:number;status:string}[]){
-  return createHash('sha256').update(JSON.stringify([code,kg,orders.map(o=>[o.id,o.kg,o.status])])).digest('hex');
+const orderIdPattern=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
+type FulfillmentAction='pack'|'deliver';
+
+function applyFulfillment(db:Prisma.TransactionClient,where:Prisma.PreorderWhereInput,action:FulfillmentAction){
+  const now=new Date();
+  return action==='pack'
+    ? db.preorder.updateMany({where:{...where,packedAt:null},data:{packedAt:now}})
+    : db.preorder.updateMany({where:{...where,packedAt:{lte:now},deliveredAt:null},data:{deliveredAt:now}});
+}
+
+class FulfillmentConflict extends Error {}
+
+function version(code:string,kg:number,orders:{id:string;kg:number;status:string;cancelRequested:boolean}[]){
+  return createHash('sha256').update(JSON.stringify([code,kg,orders.map(o=>[o.id,o.kg,o.status,o.cancelRequested])])).digest('hex');
 }
 export function ownerOrders(db:PrismaClient){
   const router=express.Router();
@@ -13,24 +25,62 @@ export function ownerOrders(db:PrismaClient){
     next();
   });
   const scope={offer:{batch:{zone:{pump:{farmId:'demo'}}}}};
+  const fulfillable:Prisma.PreorderWhereInput={
+    status:'CONFIRMED',allocatedKg:{gt:0},
+    offer:{...scope.offer,allocatedAt:{not:null}},
+  };
   router.get('/',async(req,res)=>{
     const page=Number(req.query.page??1);
     if(!Number.isInteger(page)||page<1||page>100000){res.sendStatus(400);return;}
-    const waiting=req.query.review==='pending';
-    const pendingScope={...scope,cancelRequested:true,...(typeof req.query.batch==='string'&&req.query.batch?{batchId:req.query.batch}:{})};
-    const pendingCount=await db.preorder.count({where:pendingScope});
-    const rows=await db.preorder.findMany({where:waiting?pendingScope:{...scope,...(typeof req.query.batch==='string'&&req.query.batch?{batchId:req.query.batch,status:{in:['PENDING','CONFIRMED','HOLD']}}:{})},orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*25,take:26,select:{id:true,batchId:true,kg:true,priceVnd:true,status:true,cancelRequested:true,cancelDecision:true,createdAt:true}});
+    const {batch, status, orderId, review, fulfillment}=req.query;
+    const statuses=['HOLD','EXPIRED','PENDING','CONFIRMED','CANCELLED'];
+    if((fulfillment!==undefined && (typeof fulfillment!=='string'||!['packing','delivery','delivered'].includes(fulfillment))) ||
+       (status!==undefined && (typeof status!=='string'||!['all','active',...statuses].includes(status))) ||
+       (orderId!==undefined && (typeof orderId!=='string'||!orderIdPattern.test(orderId)))){
+      res.sendStatus(400);return;
+    }
+    const batchScope={...scope,...(typeof batch==='string'&&batch?{batchId:batch}:{})};
+    const activeOnly=status==='active'||(status===undefined&&typeof batch==='string'&&!!batch&&review!=='pending');
+    const filteredScope={
+      ...batchScope,
+      ...(activeOnly ? {status:{in:['PENDING','CONFIRMED','HOLD']}} :
+        typeof status==='string'&&statuses.includes(status) ? {status} : {}),
+      ...(typeof orderId==='string'?{id:orderId}:{}),
+    };
+    const packingScope={...batchScope,...fulfillable};
+    const fulfillmentScopes={
+      packing:{...packingScope,packedAt:null},
+      delivery:{...packingScope,packedAt:{not:null},deliveredAt:null},
+      delivered:{...packingScope,deliveredAt:{not:null}},
+    } satisfies Record<string,Prisma.PreorderWhereInput>;
+    const waitingScope={...filteredScope,cancelRequested:true};
+    const baseWhere=review==='pending'?waitingScope:filteredScope;
+    const where: Prisma.PreorderWhereInput=fulfillment==='packing'||fulfillment==='delivery'||fulfillment==='delivered'
+      ? {AND:[baseWhere,fulfillmentScopes[fulfillment]]}
+      : baseWhere;
+    const [pendingCount,total,packing,delivery,delivered]=await Promise.all([
+      db.preorder.count({where:waitingScope}),
+      db.preorder.count({where}),
+      db.preorder.count({where:fulfillmentScopes.packing}),
+      db.preorder.count({where:fulfillmentScopes.delivery}),
+      db.preorder.count({where:fulfillmentScopes.delivered}),
+    ]);
+    const currentPage=Math.min(page,Math.max(1,Math.ceil(total/25)));
+    const rows=await db.preorder.findMany({
+      where,orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(currentPage-1)*25,take:25,
+      select:{id:true,batchId:true,kg:true,priceVnd:true,status:true,cancelRequested:true,cancelDecision:true,createdAt:true,allocatedKg:true,packedAt:true,deliveredAt:true,offer:{select:{allocatedAt:true}}},
+    });
     const offers=await db.offer.findMany({where:{batch:{zone:{pump:{farmId:'demo'}}}},orderBy:{batchId:'asc'},
       select:{actualKg:true,harvestDate:true,batchId:true,open:true,closesAt:true,totalKg:true,remainingKg:true,priceVnd:true}});
     const zones=await db.zone.findMany({where:{pump:{farmId:'demo'}},select:{id:true,name:true},orderBy:{name:'asc'}});
     const drafts=await db.batch.findMany({where:{published:false,zone:{pump:{farmId:'demo'}}},orderBy:{startDate:'desc'},
       select:{id:true,name:true,zoneId:true,startDate:true,expectedHarvestDate:true}});
-    res.json({pendingCount,zones,drafts,offers:offers.map(o=>({...o,heldKg:o.totalKg-o.remainingKg})),orders:rows.slice(0,25),hasMore:rows.length>25});
+    res.json({pendingCount,fulfillmentCounts:{packing,delivery,delivered},zones,drafts,offers:offers.map(o=>({...o,heldKg:o.totalKg-o.remainingKg})),orders:rows,page:currentPage,total,hasMore:currentPage*25<total});
   });
   router.get('/offers/:code/allocation-preview',async(req,res)=>{
     const offer=await db.offer.findFirst({where:{batchId:req.params.code,batch:{zone:{pump:{farmId:'demo'}}}},
       select:{allocatedAt:true,batchId:true,actualKg:true,orders:{where:{status:{in:['CONFIRMED','PENDING']}},
-        orderBy:[{createdAt:'asc'},{id:'asc'}],select:{cancelRequested:true,allocatedKg:true,id:true,kg:true,createdAt:true,status:true}}}});
+        orderBy:[{createdAt:'asc'},{id:'asc'}],select:{cancelRequested:true,allocatedKg:true,id:true,kg:true,createdAt:true,status:true,packedAt:true,deliveredAt:true}}}});
     if(!offer){res.sendStatus(404);return;}
     if(offer.actualKg===null){res.status(409).json({error:'Lô chưa chốt thu hoạch.'});return;}
     let remainingKg=offer.actualKg;
@@ -39,8 +89,84 @@ export function ownerOrders(db:PrismaClient){
       remainingKg-=proposedKg;
       return {...o,proposedKg,missingKg:o.kg-proposedKg};
     });
-    res.json({allocatedAt:offer.allocatedAt,version:version(offer.batchId,offer.actualKg,offer.orders),batchId:offer.batchId,actualKg:offer.actualKg,remainingKg,confirmed,
-      pending:offer.orders.filter(o=>o.status==='PENDING')});
+    const pending=offer.orders.filter(o=>o.status==='PENDING');
+    const cancellationCount=confirmed.filter(o=>o.cancelRequested).length;
+    const requestedKg=confirmed.reduce((total,o)=>total+o.kg,0);
+    const assignedKg=offer.actualKg-remainingKg;
+    res.json({
+      allocatedAt:offer.allocatedAt,version:version(offer.batchId,offer.actualKg,offer.orders),batchId:offer.batchId,
+      actualKg:offer.actualKg,remainingKg,confirmed,pending,
+      summary:{requestedKg,assignedKg,missingKg:requestedKg-assignedKg},
+      readiness:{canFinalize:!offer.allocatedAt&&confirmed.length>0&&!pending.length&&!cancellationCount,cancellationCount},
+    });
+  });
+  router.post('/fulfillment/bulk',express.json({limit:'2kb'}),async(req,res)=>{
+    const {ids,action}=req.body??{};
+    if(!Array.isArray(ids)||ids.length<1||ids.length>25||
+       ids.some(id=>typeof id!=='string'||!orderIdPattern.test(id))||
+       (action!=='pack'&&action!=='deliver')){
+      res.sendStatus(400);return;
+    }
+    const normalizedIds=ids.map(id=>id.toLowerCase());
+    if(new Set(normalizedIds).size!==normalizedIds.length){res.sendStatus(400);return;}
+    const where={...fulfillable,id:{in:normalizedIds}};
+    try{
+      const updated=await db.$transaction(async tx=>{
+        const change=await applyFulfillment(tx,where,action);
+        const completedWhere=action==='pack'?{packedAt:{not:null}}:{deliveredAt:{not:null}};
+        const completed=await tx.preorder.count({where:{...where,...completedWhere}});
+        if(completed!==normalizedIds.length)throw new FulfillmentConflict();
+        return change.count;
+      });
+      res.json({selected:normalizedIds.length,updated});
+    }catch(error){
+      if(error instanceof FulfillmentConflict){res.sendStatus(409);return;}
+      throw error;
+    }
+  });
+  router.post('/offers/:code/fulfillment',express.json({limit:'1kb'}),async(req,res)=>{
+    const code=req.params.code;
+    const {id,action}=req.body??{};
+    if(!/^[a-z0-9_-]{1,100}$/i.test(code) ||
+       typeof id!=='string'||!orderIdPattern.test(id) ||
+       (action!=='pack'&&action!=='deliver')){
+      res.sendStatus(400);return;
+    }
+    const where={...fulfillable,id,batchId:code};
+    const change=await applyFulfillment(db,where,action);
+    if(change.count){res.sendStatus(204);return;}
+    const order=await db.preorder.findFirst({
+      where,select:{packedAt:true,deliveredAt:true},
+    });
+    const alreadyDone=action==='pack'?order?.packedAt:order?.deliveredAt;
+    res.sendStatus(alreadyDone?204:409);
+  });
+  router.get('/offers/:code/packing-list',async(req,res)=>{
+    const code=req.params.code;
+    if(!/^[a-z0-9_-]{1,100}$/i.test(code)){res.sendStatus(400);return;}
+    const offer=await db.offer.findFirst({
+      where:{batchId:code,batch:{zone:{pump:{farmId:'demo'}}}},
+      select:{
+        allocatedAt:true,
+        orders:{
+          where:{status:'CONFIRMED',allocatedKg:{gt:0}},
+          orderBy:[{createdAt:'asc'},{id:'asc'}],
+          select:{id:true,kg:true,priceVnd:true,allocatedKg:true},
+        },
+      },
+    });
+    if(!offer){res.sendStatus(404);return;}
+    if(!offer.allocatedAt){res.sendStatus(409);return;}
+
+    const rows=['Mã lô,Mã đơn,Số kg đã đặt,Số kg cần soạn,Đơn giá (VND/kg),Giá trị giao (VND)'];
+    const csvCode=code.startsWith('-')?"'"+code:code;
+    for(const order of offer.orders){
+      if(order.allocatedKg===null)continue;
+      const deliveryValue=BigInt(order.allocatedKg)*BigInt(order.priceVnd);
+      rows.push([csvCode,order.id,order.kg,order.allocatedKg,order.priceVnd,deliveryValue].join(','));
+    }
+    res.set('Content-Disposition',`attachment; filename="soan-hang-${code}.csv"`)
+      .type('text/csv').send('\uFEFF'+rows.join('\r\n')+'\r\n');
   });
   router.post('/offers/:code/allocation',express.json({limit:'512kb'}),async(req,res)=>{
     const {items,version:seen}=req.body??{};

@@ -1,0 +1,6 @@
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--canvas); color: var(--foreground); font: 1rem/1.55 system-ui, sans-serif; }
+h1, h2 { color: var(--heading); line-height: 1.2; }
+a { color: var(--action); text-underline-offset: .18em; }
+a[aria-current="page"] { font-weight: 700; text-decoration-thickness: .16em; }
+:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }

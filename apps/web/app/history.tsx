@@ -1,4 +1,6 @@
 'use client';
+import { formatDateTime, formatLiters } from '../lib/format';
+import { Card, DataTable, SelectField, StatusMessage } from '../components/ui';
 import {useEffect,useState} from 'react';
 type Entry={id:number;source:string;finishAt:string;closedAt:string|null;estimatedLiters:number|null;zone:{name:string}};
 export default function History({zones}:{zones:{id:string;name:string}[]}){
@@ -16,10 +18,10 @@ export default function History({zones}:{zones:{id:string;name:string}[]}){
     }
     void poll();return ()=>{abort.abort();clearTimeout(timer);};
   },[zone]);
-  return <section><h2>Nhật ký tưới mô phỏng</h2><label>Vùng trồng <select value={zone} onChange={e=>{setRows(null);setZone(e.target.value);}}>
-    <option value="">Tất cả</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}</select></label>
-    {failed?<p>Không tải được nhật ký.</p>:!rows?<p>Đang tải…</p>:!rows.length?<p>Chưa có lượt tưới hoàn tất.</p>:
-    <table><caption>50 lượt gần nhất · thời gian thực</caption><thead><tr><th>Kết thúc</th><th>Vùng</th><th>Yêu cầu</th><th>Nước ước tính</th></tr></thead>
-    <tbody>{rows.map(r=><tr key={r.id}><td>{new Date(r.closedAt??r.finishAt).toLocaleString('vi-VN')}</td><td>{r.zone.name}</td><td>{r.source==='AUTO'?'Tự động':'Thủ công'}</td>
-    <td>{r.estimatedLiters===null?'Chưa có dữ liệu':r.estimatedLiters.toLocaleString('vi-VN')+' L'}</td></tr>)}</tbody></table>}</section>;
+  return <Card as="section"><h2>Nhật ký tưới mô phỏng</h2><SelectField label="Vùng trồng" value={zone} onChange={e=>{setRows(null);setZone(e.target.value);}}>
+    <option value="">Tất cả</option>{zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}</SelectField>
+    {failed?<StatusMessage>Không tải được nhật ký.</StatusMessage>:!rows?<StatusMessage>Đang tải…</StatusMessage>:!rows.length?<StatusMessage>Chưa có lượt tưới hoàn tất.</StatusMessage>:
+    <DataTable label="Nhật ký tưới mô phỏng"><caption>50 lượt gần nhất · thời gian thực</caption><thead><tr><th>Kết thúc (giờ Việt Nam)</th><th>Vùng</th><th>Yêu cầu</th><th>Nước ước tính</th></tr></thead>
+    <tbody>{rows.map(r=><tr key={r.id}><td><time dateTime={r.closedAt??r.finishAt}>{formatDateTime(r.closedAt??r.finishAt)}</time></td><td>{r.zone.name}</td><td>{r.source==='AUTO'?'Tự động':'Thủ công'}</td>
+    <td>{r.estimatedLiters===null?'Chưa có dữ liệu':formatLiters(r.estimatedLiters)}</td></tr>)}</tbody></DataTable>}</Card>;
 }

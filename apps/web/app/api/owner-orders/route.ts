@@ -1,13 +1,22 @@
 async function proxy(req:Request){
   const url=new URL(req.url);
   const base=(process.env.API_BASE_URL??'http://localhost:4000')+'/api/farms/demo/owner/orders';
-  let suffix='?page='+encodeURIComponent(url.searchParams.get('page')??'1')+'&batch='+encodeURIComponent(url.searchParams.get('batch')??'')+(url.searchParams.get('review')==='pending'?'&review=pending':'');
+  const filters=new URLSearchParams();
+  for(const name of ['page','batch','review','status','orderId','fulfillment']){
+    for(const value of url.searchParams.getAll(name))filters.append(name,value);
+  }
+  let suffix='?'+filters.toString();
+  let body:string|undefined;
   if(req.method==='POST'){
     const id=url.searchParams.get('id')??'',action=url.searchParams.get('action');
-    if(!/^[a-f\d-]{36}$/i.test(id)||!['confirm','cancel','approve-cancel','decline-cancel'].includes(action??''))return new Response(null,{status:400});
-    suffix='/'+id+'/'+action;
+    if(action==='bulk-fulfillment'){
+      suffix='/fulfillment/bulk';
+      body=await req.text();
+    }else{
+      if(!/^[a-f\d-]{36}$/i.test(id)||!['confirm','cancel','approve-cancel','decline-cancel'].includes(action??''))return new Response(null,{status:400});
+      suffix='/'+id+'/'+action;
+    }
   }
-  let body:string|undefined;
   if(req.method==='PUT'){
     const code=url.searchParams.get('code')??'';
     if(!/^[A-Za-z0-9_-]{1,100}$/.test(code))return new Response(null,{status:400});
