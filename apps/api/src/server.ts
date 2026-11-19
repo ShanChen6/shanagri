@@ -1,9 +1,11 @@
+import {deviceRouter} from "./device.ts";
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import {scenario, weather, simulate, days} from './day-one.ts';
 import {advance,enqueue,lockPump} from './queue.ts';
 const app = express();
 const db = new PrismaClient();
+app.use("/api/devices/virtual-cam",deviceRouter(db));
 app.get('/health/live', (_, res) => res.json({status:'ok'}));
 app.get('/health/ready', async (_, res) => {
   try { await db.$queryRaw`SELECT 1`; res.json({status:'ready'}); }
@@ -12,7 +14,7 @@ app.get('/health/ready', async (_, res) => {
 app.get('/api/farms/demo/zones', async (_, res) => {
   const zones = await db.zone.findMany({
     where: {pump: {farmId: 'demo'}}, orderBy: {id:'asc'},
-    select: {id:true, name:true, simulatedDays:{where:{scenario},orderBy:{simulatedDate:"desc"},select:{simulatedDate:true,moisturePct:true,needsWater:true}}, pump:{select:{name:true}}, plantProfile:{select:{name:true,dryBelowPct:true}}}
+    select: {id:true, name:true, virtualReadings:{orderBy:{observedAt:"desc"},take:1,select:{moisturePct:true,observedAt:true}}, simulatedDays:{where:{scenario},orderBy:{simulatedDate:"desc"},select:{simulatedDate:true,moisturePct:true,needsWater:true}}, pump:{select:{name:true}}, plantProfile:{select:{name:true,dryBelowPct:true}}}
   });
   res.json(zones.map(z => ({...z, totalDays:days.length, simulatedDays:z.simulatedDays.map(d=>({
     ...d, rainMm:days[d.simulatedDate.getUTCDate()-1].rainMm

@@ -57,3 +57,15 @@ Lưu lượng giả lập mặc định 100 mL/s được chụp lại khi bắt
 Thời lượng theo lịch mô phỏng nhân với lưu lượng này cho ra thể tích ước tính;
 thời gian worker ngừng hoạt động không cộng thêm nước. Lượt hoàn tất trước
 migration không có số đo ước tính. Reset demo xóa cả lịch sử tưới.
+
+### IoT ảo: nhận độ ẩm
+Chạy db:setup, đặt DEVICE_SIM_TOKEN trong .env thành chuỗi bí mật riêng rồi
+khởi động lại API. Từ thư mục gốc, chạy:
+```sh
+node --env-file=.env apps/device-sim/run.mjs
+```
+Thêm --once để gửi một mẫu. Mỗi 5 giây thiết bị virtual-cam gửi độ ẩm giả
+lập cho zone-cam. Tải lại dashboard để xem bản ghi mới nhất. API kiểm tra
+token, phạm vi 0–100%, từ chối mẫu mới quá 60 giây hoặc vượt trước hơn
+5 giây. Gửi lại cùng ID và nội dung không tạo bản ghi thứ hai.
+Dữ liệu thiết bị ảo độc lập với Time-Warp, chưa kích hoạt tưới.

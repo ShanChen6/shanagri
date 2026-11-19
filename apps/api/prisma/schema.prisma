@@ -26,6 +26,7 @@ model PlantProfile {
   zones Zone[]
 }
 model Zone {
+  virtualReadings VirtualReading[]
   irrigation Irrigation[]
   simulatedDays SimulatedDay[]
   id String @id
@@ -60,4 +61,14 @@ model Irrigation {
   pump Pump @relation(fields:[pumpId], references:[id])
   zone Zone @relation(fields:[zoneId], references:[id])
   @@index([pumpId,status,id],map:"irrigation_fifo")
+}
+
+model VirtualReading {
+  sampleId String @id @db.Uuid
+  zoneId String
+  zone Zone @relation(fields:[zoneId],references:[id])
+  observedAt DateTime @db.Timestamptz
+  receivedAt DateTime @default(now()) @db.Timestamptz
+  moisturePct Int
+  @@index([zoneId,observedAt],map:"virtual_zone_time")
 }

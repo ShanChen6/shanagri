@@ -3,7 +3,7 @@ import Queue from "./queue";
 import Controls from './controls';
 export const dynamic = 'force-dynamic';
 type Day = {rainMm:number; simulatedDate:string; moisturePct:number; needsWater:boolean};
-type Zone = {totalDays:number; simulatedDays:Day[];id:string; name:string; pump:{name:string}; plantProfile:{name:string; dryBelowPct:number}};
+type Zone = {virtualReadings:{moisturePct:number;observedAt:string}[];totalDays:number; simulatedDays:Day[];id:string; name:string; pump:{name:string}; plantProfile:{name:string; dryBelowPct:number}};
 export default async function Home() {
   let zones: Zone[] | null = null;
   try {
@@ -19,6 +19,7 @@ export default async function Home() {
     {zones === null ? <p>Không tải được vùng trồng. Vui lòng thử lại.</p> :
       zones.length === 0 ? <p>Chưa có vùng trồng.</p> : zones.map(z =>
         <section key={z.id}><h3>{z.name}</h3><p>Giống cây: {z.plantProfile.name} · {z.pump.name}</p>
+          {z.virtualReadings[0] && <p>Thiết bị ảo: {z.virtualReadings[0].moisturePct}% · {new Date(z.virtualReadings[0].observedAt).toLocaleString("vi-VN",{timeZone:"Asia/Ho_Chi_Minh"})} (giờ Việt Nam)</p>}
           <p>Ngưỡng tưới mô phỏng: dưới {z.plantProfile.dryBelowPct}%</p>
           {z.simulatedDays[0] ? <p>Độ ẩm ước tính (mô phỏng): {z.simulatedDays[0].moisturePct}% · {z.simulatedDays[0].needsWater ? 'Cần tưới' : 'Chưa cần tưới'}</p> : <p>Độ ẩm ước tính: Chưa có dữ liệu</p>}
           {!!z.simulatedDays.length && <details><summary>Lịch sử độ ẩm ({z.simulatedDays.length} ngày)</summary>

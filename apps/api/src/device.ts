@@ -1,0 +1,24 @@
+import express from 'express';
+import type {PrismaClient} from '@prisma/client';
+export function deviceRouter(db:PrismaClient){
+  const router=express.Router();
+  router.post('/readings',express.json({limit:'2kb'}),async(req,res)=>{
+    const token=process.env.DEVICE_SIM_TOKEN;
+    if(!token || req.headers.authorization!=='Bearer '+token){res.sendStatus(401);return;}
+    const {sampleId,observedAt,moisturePct}=req.body??{};
+    const time=typeof observedAt==='string'?Date.parse(observedAt):NaN;
+    if(typeof sampleId!=='string'||!/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(sampleId)||
+       !Number.isFinite(time)||!Number.isInteger(moisturePct)||moisturePct<0||moisturePct>100){res.sendStatus(400);return;}
+    const zoneId='zone-cam';
+    const same=(r:{observedAt:Date;moisturePct:number;zoneId:string})=>r.zoneId===zoneId&&r.observedAt.getTime()===time&&r.moisturePct===moisturePct;
+    const existing=await db.virtualReading.findUnique({where:{sampleId}});
+    if(existing){res.sendStatus(same(existing)?200:409);return;}
+    const age=Date.now()-time;
+    if(age>60000||age< -5000){res.sendStatus(422);return;}
+    const result=await db.virtualReading.createMany({data:[{sampleId,zoneId,observedAt:new Date(time),moisturePct}],skipDuplicates:true});
+    if(result.count){res.sendStatus(201);return;}
+    const saved=await db.virtualReading.findUniqueOrThrow({where:{sampleId}});
+    res.sendStatus(same(saved)?200:409);
+  });
+  return router;
+}
