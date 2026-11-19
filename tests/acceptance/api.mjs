@@ -104,5 +104,16 @@ try{
  const receipt=await read(await call('public/order-lookup','GET',undefined,secret));
  assert.deepEqual([receipt.status,receipt.cancelDecision,await getStock()],['CONFIRMED','DECLINED',initial-3]);
  assert.equal((await admin('/'+declined.id+'/cancel','POST')).status,204);assert.equal(await getStock(),initial);
+ const repeated=request(1);
+ for(let i=0;i<3;i++){
+   const o={...request(1),phone:repeated.phone};
+   assert.equal((await buy(o)).status,201);
+   assert.equal((await call('public/hold/cancel','POST',{},'Bearer '+o.lookupToken)).status,204);
+ }
+ const blocked=await buy(repeated);assert.equal(blocked.status,429);
+ const limit=await blocked.json();assert.equal(limit.error,'HOLD_LIMIT');
+ assert.ok(limit.retrySeconds>3500&&limit.retrySeconds<=3600);
+ assert.equal(Number(blocked.headers.get('retry-after')),limit.retrySeconds);
+ assert.equal(await getStock(),initial);
  console.log('PASS: verified FIFO timestamp, phone limit, expiry/refund once, and cancellation approval');
 }finally{await db.$disconnect();}

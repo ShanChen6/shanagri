@@ -17,13 +17,16 @@ export default function Order({code,remaining,price}:{code:string;remaining:numb
        const problem=await res.json();
        setMsg(problem.error==='INSUFFICIENT_STOCK'?
          (problem.remainingKg===0?'Lô đã hết hàng. Chưa tạo đơn.':'Chỉ còn '+problem.remainingKg+' kg. Vui lòng chỉnh số lượng; chưa tạo đơn.'):'Không thể giữ chỗ. Hãy kiểm tra lại lô.');
-     }else setMsg(res.status===429?'Số điện thoại đang giữ chỗ hoặc đã đạt giới hạn.':res.status===503?'Dịch vụ SMS chưa sẵn sàng.':res.status===400?'Kiểm tra số điện thoại và số kg.':res.status===410?'Đã hết hạn nhận đơn.':res.status===412?'Giá đã thay đổi. Vui lòng xem giá mới trước khi đặt lại.':res.status===409?'Không đủ số lượng hoặc lô đã ngừng nhận đơn.':'Chưa xác nhận được đơn. Hãy thử lại.');
+     }else if(res.status===429){
+       const problem=await res.json();
+       setMsg(problem.retrySeconds?'Chưa thể giữ thêm hàng. Vui lòng thử lại sau khoảng '+Math.ceil(problem.retrySeconds/60)+' phút.':'Đang có nhiều yêu cầu. Vui lòng thử lại sau.');
+     }else setMsg(res.status===503?'Dịch vụ SMS chưa sẵn sàng.':res.status===400?'Kiểm tra số điện thoại và số kg.':res.status===410?'Đã hết hạn nhận đơn.':res.status===412?'Giá đã thay đổi. Vui lòng xem giá mới trước khi đặt lại.':res.status===409?'Không đủ số lượng hoặc lô đã ngừng nhận đơn.':'Chưa xác nhận được đơn. Hãy thử lại.');
      router.refresh();
    }catch{setMsg('Chưa xác nhận được đơn. Hãy thử lại.');}
    finally{lock.current=false;setBusy(false);}
  }
  return <section><h2>Đặt trước thử nghiệm</h2><p>{price.toLocaleString('vi-VN')} ₫/kg · Còn {remaining} kg</p>
- <form onSubmit={e=>{e.preventDefault();void submit()}}><label>Số điện thoại <input required type="tel" autoComplete="tel" value={phone} disabled={busy} onChange={e=>P(e.target.value)}/></label><label>Số kg <input type="number" min={1} max={remaining} required disabled={busy} value={kg||''} onChange={e=>{setMsg('');setKg(Number(e.target.value));key.current='';secret.current='';}}/></label>
+ <p>Mỗi số điện thoại được tạo tối đa 3 đơn trong 1 giờ, kể cả đơn đã hủy, và chỉ được giữ 1 đơn chờ OTP cùng lúc.</p><form onSubmit={e=>{e.preventDefault();void submit()}}><label>Số điện thoại <input required type="tel" autoComplete="tel" value={phone} disabled={busy} onChange={e=>P(e.target.value)}/></label><label>Số kg <input type="number" min={1} max={remaining} required disabled={busy} value={kg||''} onChange={e=>{setMsg('');setKg(Number(e.target.value));key.current='';secret.current='';}}/></label>
  {kg>remaining && remaining>0 && <p>Chỉ còn {remaining} kg. Vui lòng chỉnh số lượng.</p>}
  <button disabled={busy||remaining<1||kg>remaining}>{remaining?'Giữ chỗ (không thanh toán)':'Đã hết hạn mức'}</button></form><p role="status">{msg}</p>{link&&<p><a href={link}>Tra cứu đơn vừa đặt</a>{' '}<button onClick={async()=>{try{await navigator.clipboard.writeText(link);setMsg('Đã sao chép liên kết tra cứu.');}catch{setMsg('Hãy sao chép địa chỉ của liên kết tra cứu.');}}}>Sao chép liên kết tra cứu</button></p>}</section>
 }

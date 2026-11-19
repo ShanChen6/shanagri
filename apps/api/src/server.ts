@@ -152,8 +152,13 @@ app.post('/api/public/batches/:code/preorders',express.json({limit:'2kb'}),async
     if(rows[0].closesAt && rows[0].closesAt.getTime()<=Date.now())return {status:410};
     if(rows[0].remainingKg<kg)return {status:409,available:rows[0].remainingKg};
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(12345,hashtext(${phoneHash}))`;
-    const recent=await tx.preorder.count({where:{phoneHash,createdAt:{gte:new Date(Date.now()-3600000)}}});
-    if(recent>=3||await tx.preorder.count({where:{phoneHash,status:'HOLD'}}))return {status:429};
+    const now=Date.now();
+    const recent=await tx.preorder.findMany({where:{phoneHash,createdAt:{gt:new Date(now-3600000)}},orderBy:{createdAt:'desc'},take:3,select:{createdAt:true}});
+    const active=await tx.preorder.findFirst({where:{phoneHash,status:'HOLD'},select:{expiresAt:true}});
+    if(recent.length===3||active){
+      const retryAt=Math.max(recent.length===3?+recent[2].createdAt+3600000:0,active?.expiresAt?.getTime()??0);
+      return {status:429,retrySeconds:Math.max(1,Math.ceil((retryAt-now)/1000))};
+    }
     // Bound SMS dispatch even when a caller rotates phone numbers.
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(12346,0)`;
     if(await tx.preorder.count({where:{phoneHash:{not:null},createdAt:{gte:new Date(Date.now()-600000)}}})>=60)return {status:429};
@@ -164,6 +169,7 @@ app.post('/api/public/batches/:code/preorders',express.json({limit:'2kb'}),async
     return {status:201,order};
   });
   if(result.status===201){try{await deliver(phone,otp);}catch{/* Hold remains accessible for resend or immediate cancellation. */}}
+  if(result.retrySeconds){res.set('Retry-After',String(result.retrySeconds)).status(429).json({error:'HOLD_LIMIT',retrySeconds:result.retrySeconds});return;}
   const receipt=result.order?{status:result.order.status,expiresAt:result.order.expiresAt,id:result.order.id,kg:result.order.kg,batchId:result.order.batchId,priceVnd:result.order.priceVnd}:null;
   res.status(result.status).json(receipt??(result.available!==undefined?{error:'INSUFFICIENT_STOCK',remainingKg:result.available}:{error:'Không thể giữ số lượng yêu cầu'}));
 });
