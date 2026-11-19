@@ -101,3 +101,10 @@ truy xuất cho đặt số kg nguyên, trả mã đơn mẫu; không thu tiền
 hàng. POST /api/public/batches/:code/preorders nhận {id,kg}; id là UUID v4
 cho mỗi ý định đặt. Gửi lại nguyên yêu cầu không trừ thêm hạn mức. Đơn lưu
 đơn giá tại lúc đặt. Seed lại hoặc reset mô phỏng không xóa đơn đã giữ.
+
+### Quản lý đơn của chủ trang trại mẫu
+Chạy db:setup, đặt DEMO_OWNER_TOKEN thành một chuỗi bí mật riêng trong .env
+và khởi động lại API. Mở /chu-trang-trai/don và nhập mã này. Mã chỉ dùng
+cho trang trại demo, không phải tài khoản người mua. Đơn đang chờ có thể
+xác nhận hoặc hủy; đơn đã xác nhận cũng có thể hủy. Đơn đã hủy không mở lại.
+Hủy nhiều lần chỉ hoàn kg một lần. Danh sách phân trang 25 đơn.

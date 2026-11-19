@@ -102,6 +102,7 @@ model Offer {
   orders Preorder[]
 }
 model Preorder {
+  status String @default("PENDING")
   id String @id @db.Uuid
   batchId String
   offer Offer @relation(fields:[batchId],references:[batchId])

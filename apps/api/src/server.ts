@@ -1,3 +1,4 @@
+import {ownerOrders} from "./owner-orders.ts";
 import {deviceRouter} from "./device.ts";
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
@@ -5,6 +6,7 @@ import {scenario, weather, simulate, days} from './day-one.ts';
 import {advance,enqueue,lockPump} from './queue.ts';
 const app = express();
 const db = new PrismaClient();
+app.use("/api/farms/demo/owner/orders",ownerOrders(db));
 app.use("/api/devices/virtual-cam",deviceRouter(db));
 app.get('/health/live', (_, res) => res.json({status:'ok'}));
 app.get('/health/ready', async (_, res) => {

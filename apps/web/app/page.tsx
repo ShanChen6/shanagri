@@ -27,6 +27,7 @@ export default async function Home() {
             <tbody>{z.simulatedDays.map(d=><tr key={d.simulatedDate}><td>{d.simulatedDate.slice(0,10).split('-').reverse().join('/')}</td>
             <td>{d.rainMm ? 'Mưa '+d.rainMm+' mm' : 'Nắng'}</td><td>{d.moisturePct}%</td><td>{d.needsWater?'Cần tưới':'Chưa cần tưới'}</td></tr>)}</tbody></table></details>}</section>)}
     <p><a href="/lo/CAM-2026-01">Xem nguồn gốc lô Cam Sành mẫu</a></p>
+    <p><a href="/chu-trang-trai/don">Quản lý đơn đặt trước</a></p>
     <Queue/><History zones={(zones??[]).map(({id,name})=>({id,name}))}/>
   </main>;
 }
