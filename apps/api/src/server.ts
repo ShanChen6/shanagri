@@ -105,7 +105,7 @@ app.get('/api/public/market',async(req,res)=>{
     expectedHarvestDate:o.batch.expectedHarvestDate,priceVnd:o.priceVnd,remainingKg:o.remainingKg})));
 });
 app.get('/api/public/batches/:code',async(req,res)=>{
-  const batch=await db.batch.findFirst({where:{id:req.params.code,published:true},include:{offer:true,zone:{include:{pump:{include:{farm:true}}}}}});
+  const batch=await db.batch.findFirst({where:{id:req.params.code,published:true},include:{offer:{select:{batchId:true,totalKg:true,remainingKg:true,priceVnd:true,open:true,closesAt:true,harvestDate:true}},zone:{include:{pump:{include:{farm:true}}}}}});
   if(!batch){res.sendStatus(404);return;}
   const history=await db.simulatedDay.findMany({where:{zoneId:batch.zoneId,scenario:batch.scenario,
     simulatedDate:{gte:batch.startDate,lte:batch.expectedHarvestDate}},orderBy:{simulatedDate:'asc'},

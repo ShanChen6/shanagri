@@ -94,6 +94,8 @@ model Batch {
 }
 
 model Offer {
+  harvestDate DateTime? @db.Date
+  actualKg Int?
   closesAt DateTime? @db.Timestamptz
   batchId String @id
   batch Batch @relation(fields:[batchId],references:[id])

@@ -13,9 +13,9 @@ export function ownerOrders(db:PrismaClient){
   router.get('/',async(req,res)=>{
     const page=Number(req.query.page??1);
     if(!Number.isInteger(page)||page<1||page>100000){res.sendStatus(400);return;}
-    const rows=await db.preorder.findMany({where:scope,orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*25,take:26});
+    const rows=await db.preorder.findMany({where:{...scope,...(typeof req.query.batch==='string'&&req.query.batch?{batchId:req.query.batch,status:{not:'CANCELLED'}}:{})},orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*25,take:26});
     const offers=await db.offer.findMany({where:{batch:{zone:{pump:{farmId:'demo'}}}},orderBy:{batchId:'asc'},
-      select:{batchId:true,open:true,closesAt:true,totalKg:true,remainingKg:true,priceVnd:true}});
+      select:{actualKg:true,harvestDate:true,batchId:true,open:true,closesAt:true,totalKg:true,remainingKg:true,priceVnd:true}});
     const zones=await db.zone.findMany({where:{pump:{farmId:'demo'}},select:{id:true,name:true},orderBy:{name:'asc'}});
     const drafts=await db.batch.findMany({where:{published:false,zone:{pump:{farmId:'demo'}}},orderBy:{startDate:'desc'},
       select:{id:true,name:true,zoneId:true,startDate:true,expectedHarvestDate:true}});
@@ -67,14 +67,25 @@ export function ownerOrders(db:PrismaClient){
     res.status(status).json(status===422?{error:'Hạn chốt phải ở tương lai.'}:status===404?{error:'Không tìm thấy lô.'}:{code:batchId});
   });
   router.put('/offers/:code',express.json({limit:'1kb'}),async(req,res)=>{
-    const {priceVnd,open,totalKg}=req.body??{};
+    const {priceVnd,open,totalKg,actualKg,harvestDate}=req.body??{};
+    if(actualKg!==undefined||harvestDate!==undefined){
+      const day=new Date(typeof harvestDate==='string'?harvestDate:NaN);
+      const today=new Date(Date.now()+7*3600000).toISOString().slice(0,10);
+      if(!Number.isInteger(actualKg)||actualKg<0||actualKg>2147483647||!Number.isFinite(+day)||day.toISOString().slice(0,10)!==harvestDate||harvestDate>today){
+        res.sendStatus(400);return;
+      }
+      const result=await db.offer.updateMany({where:{batchId:req.params.code,harvestDate:null,
+        batch:{startDate:{lte:day},zone:{pump:{farmId:'demo'}}}},data:{actualKg,harvestDate:day,open:false}});
+      res.sendStatus(result.count?204:409);return;
+    }
     if(totalKg!==undefined){
       if(!Number.isInteger(totalKg)||totalKg<0||totalKg>2147483647||open!==undefined||priceVnd!==undefined){res.sendStatus(400);return;}
       const status=await db.$transaction(async tx=>{
-        const [offer]=await tx.$queryRaw<{totalKg:number;remainingKg:number}[]>`SELECT o."totalKg",o."remainingKg" FROM "Offer" o
+        const [offer]=await tx.$queryRaw<{totalKg:number;remainingKg:number;harvestDate:Date|null}[]>`SELECT o."totalKg",o."remainingKg",o."harvestDate" FROM "Offer" o
           JOIN "Batch" b ON b.id=o."batchId" JOIN "Zone" z ON z.id=b."zoneId" JOIN "Pump" p ON p.id=z."pumpId"
           WHERE o."batchId"=${req.params.code} AND p."farmId"='demo' FOR UPDATE OF o`;
         if(!offer)return 404;
+        if(offer.harvestDate)return 409;
         const held=offer.totalKg-offer.remainingKg;
         if(totalKg<held)return 409;
         await tx.offer.update({where:{batchId:req.params.code},data:{totalKg,remainingKg:totalKg-held}});
@@ -85,7 +96,7 @@ export function ownerOrders(db:PrismaClient){
     const data=typeof open==='boolean' && priceVnd===undefined?{open}:
       open===undefined && Number.isInteger(priceVnd) && priceVnd>0 && priceVnd<=2147483647?{priceVnd}:null;
     if(!data){res.sendStatus(400);return;}
-    const result=await db.offer.updateMany({where:{batchId:req.params.code,batch:{zone:{pump:{farmId:'demo'}}}},data});
+    const result=await db.offer.updateMany({where:{batchId:req.params.code,harvestDate:null,batch:{zone:{pump:{farmId:'demo'}}}},data});
     res.sendStatus(result.count?204:404);
   });
   router.post('/:id/:action',async(req,res)=>{

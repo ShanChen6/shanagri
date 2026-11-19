@@ -152,3 +152,8 @@ với ngày mô phỏng. Trường closesAt của API nhận ISO UTC dạng
 YYYY-MM-DDTHH:mm:ss.sssZ hoặc null. Kể từ hạn chốt lô rời chợ và đơn mới
 không thể giữ chỗ. Lô cũ mặc định không có hạn; tra cứu và xử lý đơn cũ
 vẫn hoạt động.
+
+### Chốt thu hoạch
+Trong quản lý đơn, chốt ngày thực thu và số kg nguyên (kể cả 0) cho từng lô đã mở bán.
+Mỗi lô chốt một lần, dừng nhận đơn; không đổi hạn mức cũ hoặc tự phân bổ lại đơn.
+Trang chủ trại so sánh sản lượng với lượng đang giữ và lọc đơn của lô. Trang công khai chỉ thêm ngày thu hoạch thực tế.
