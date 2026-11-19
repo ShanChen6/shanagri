@@ -170,3 +170,14 @@ khoảng 0–số đã đặt cho từng đơn xác nhận; tổng không vượ
 trước cũ bị từ chối nếu tập đơn hoặc trạng thái thay đổi. Chốt một lần;
 sau đó không thể hủy đơn thuộc phương án. Liên kết tra cứu hiển thị cả số kg
 đặt ban đầu và số kg được phân bổ, kể cả khi phân bổ 0 kg.
+
+## Nghiệm thu MVP
+Workflow **MVP acceptance** chạy khi push vào develop, trên PR vào main/develop hoặc được chạy thủ
+công. Mỗi lượt dùng PostgreSQL riêng, migration và seed mới. Không chạy
+các script nghiệm thu trên dữ liệu đang dùng: chúng tạo đơn và chốt lô.
+Để chạy local: dùng database mới, đặt DEMO_OWNER_TOKEN, tắt chế độ van ảo,
+chạy db:setup, khởi động API và web ở cổng 4000/3000. Chạy
+`node tests/acceptance/api.mjs`, sau đó cài Python Playwright như trong
+workflow và chạy `python tests/acceptance/browser.py`. Tạo lại database thử
+riêng trước khi chạy lại. API kiểm tra cả hàng đợi và nhật ký tưới; browser
+đi qua giao diện chủ trại và ba phiên khách độc lập.
