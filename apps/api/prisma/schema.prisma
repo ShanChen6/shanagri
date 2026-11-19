@@ -1,0 +1,33 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+model Farm {
+  id String @id
+  name String
+  pumps Pump[]
+}
+model Pump {
+  id String @id
+  name String
+  farmId String
+  farm Farm @relation(fields: [farmId], references: [id])
+  zones Zone[]
+}
+model PlantProfile {
+  id String @id
+  name String
+  dryBelowPct Int
+  zones Zone[]
+}
+model Zone {
+  id String @id
+  name String
+  pumpId String
+  pump Pump @relation(fields: [pumpId], references: [id])
+  plantProfileId String
+  plantProfile PlantProfile @relation(fields: [plantProfileId], references: [id])
+}

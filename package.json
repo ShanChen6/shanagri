@@ -1,1 +1,1 @@
-{"name":"shanagri","private":true,"workspaces":["apps/*"],"scripts":{"dev:web":"npm run dev -w @shanagri/web","dev:api":"npm run dev -w @shanagri/api"}}
+{"name":"shanagri","private":true,"workspaces":["apps/*"],"scripts":{"dev:web":"npm run dev -w @shanagri/web","dev:api":"npm run dev -w @shanagri/api","db:setup":"node --env-file=.env scripts/setup-db.mjs"}}
