@@ -45,4 +45,11 @@ app.post(['/api/farms/demo/simulation/day-one','/api/farms/demo/simulation/days/
   });
   res.status(status).json(status===200 ? {source:'SIMULATION',scenario,weather:input} : {error:'Cần tạo vùng mẫu và chạy ngày trước đó'});
 });
+app.post('/api/farms/demo/simulation/reset', async (_, res) => {
+  await db.$transaction(async tx => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(527005)`;
+    await tx.simulatedDay.deleteMany({where:{scenario,zone:{pump:{farmId:'demo'}}}});
+  });
+  res.sendStatus(204);
+});
 app.listen(Number(process.env.API_PORT ?? 4000));

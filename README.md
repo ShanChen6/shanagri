@@ -32,3 +32,10 @@ Mỗi ngày lấy độ ẩm hôm trước, cộng lượng mưa và trừ hao h
 thời tiết giả lập cố định. Ví dụ ba ngày đầu: 45%, 41%, 54%.
 POST /api/farms/demo/simulation/days/:day nhận số 1–30, trả 409 nếu bỏ qua ngày.
 Gửi lại cùng ngày không tạo thêm bản ghi. Ngày đầu từ phiên bản trước vẫn được giữ.
+
+### Time-Warp
+Chọn **Chạy tự động** để chạy tiếp khi dashboard đang mở. Sau khi mỗi bước
+hoàn tất, chờ một giây trước bước kế tiếp. **Tạm dừng** cho phép ngày đang
+xử lý hoàn tất. Đóng tab dừng bộ hẹn giờ; các ngày đã ghi vẫn còn.
+**Đặt lại** yêu cầu xác nhận và xóa lịch sử của kịch bản hiện tại trên
+trang trại demo dùng chung (POST /api/farms/demo/simulation/reset).
