@@ -1,7 +1,10 @@
 import express from 'express';
 import type {PrismaClient} from '@prisma/client';
-import {randomUUID} from 'node:crypto';
+import {createHash,randomUUID} from 'node:crypto';
 import {scenario} from './day-one.ts';
+function version(code:string,kg:number,orders:{id:string;kg:number;status:string}[]){
+  return createHash('sha256').update(JSON.stringify([code,kg,orders.map(o=>[o.id,o.kg,o.status])])).digest('hex');
+}
 export function ownerOrders(db:PrismaClient){
   const router=express.Router();
   router.use((req,res,next)=>{
@@ -23,18 +26,41 @@ export function ownerOrders(db:PrismaClient){
   });
   router.get('/offers/:code/allocation-preview',async(req,res)=>{
     const offer=await db.offer.findFirst({where:{batchId:req.params.code,batch:{zone:{pump:{farmId:'demo'}}}},
-      select:{batchId:true,actualKg:true,orders:{where:{status:{in:['CONFIRMED','PENDING']}},
-        orderBy:[{createdAt:'asc'},{id:'asc'}],select:{id:true,kg:true,createdAt:true,status:true}}}});
+      select:{allocatedAt:true,batchId:true,actualKg:true,orders:{where:{status:{in:['CONFIRMED','PENDING']}},
+        orderBy:[{createdAt:'asc'},{id:'asc'}],select:{allocatedKg:true,id:true,kg:true,createdAt:true,status:true}}}});
     if(!offer){res.sendStatus(404);return;}
     if(offer.actualKg===null){res.status(409).json({error:'Lô chưa chốt thu hoạch.'});return;}
     let remainingKg=offer.actualKg;
     const confirmed=offer.orders.filter(o=>o.status==='CONFIRMED').map(o=>{
-      const proposedKg=Math.min(o.kg,remainingKg);
+      const proposedKg=o.allocatedKg??Math.min(o.kg,remainingKg);
       remainingKg-=proposedKg;
       return {...o,proposedKg,missingKg:o.kg-proposedKg};
     });
-    res.json({batchId:offer.batchId,actualKg:offer.actualKg,remainingKg,confirmed,
+    res.json({allocatedAt:offer.allocatedAt,version:version(offer.batchId,offer.actualKg,offer.orders),batchId:offer.batchId,actualKg:offer.actualKg,remainingKg,confirmed,
       pending:offer.orders.filter(o=>o.status==='PENDING')});
+  });
+  router.post('/offers/:code/allocation',express.json({limit:'512kb'}),async(req,res)=>{
+    const {items,version:seen}=req.body??{};
+    if(!Array.isArray(items)||typeof seen!=='string'||items.some(x=>!x||typeof x.id!=='string'||!Number.isSafeInteger(x.kg)||x.kg<0)){
+      res.sendStatus(400);return;
+    }
+    const code=req.params.code;
+    const status=await db.$transaction(async tx=>{
+      const [o]=await tx.$queryRaw<{actualKg:number|null;allocatedAt:Date|null}[]>`SELECT o."actualKg",o."allocatedAt" FROM "Offer" o
+        JOIN "Batch" b ON b.id=o."batchId" JOIN "Zone" z ON z.id=b."zoneId" JOIN "Pump" p ON p.id=z."pumpId"
+        WHERE b.id=${code} AND p."farmId"='demo' FOR UPDATE OF o`;
+      if(!o)return 404;
+      if(o.actualKg===null||o.allocatedAt)return 409;
+      const orders=await tx.preorder.findMany({where:{batchId:code,status:{in:['CONFIRMED','PENDING']}},orderBy:[{createdAt:'asc'},{id:'asc'}]});
+      if(version(code,o.actualKg,orders)!==seen||orders.some(x=>x.status==='PENDING'))return 409;
+      const byId=new Map<string,number>(items.map(x=>[x.id,x.kg]));
+      if(!orders.length||items.length!==orders.length||byId.size!==orders.length||
+        orders.some(x=>!byId.has(x.id)||byId.get(x.id)!>x.kg)||items.reduce((n,x)=>n+x.kg,0)>o.actualKg)return 400;
+      for(const x of orders)await tx.preorder.update({where:{id:x.id},data:{allocatedKg:byId.get(x.id)}});
+      await tx.offer.update({where:{batchId:code},data:{allocatedAt:new Date()}});
+      return 204;
+    });
+    res.sendStatus(status);
   });
   router.post('/drafts',express.json({limit:'4kb'}),async(req,res)=>{
     const {name,zoneId,startDate,expectedHarvestDate}=req.body??{};
@@ -124,7 +150,8 @@ export function ownerOrders(db:PrismaClient){
       const o=await tx.preorder.findFirst({where:{id,...scope}});
       if(!o)return 404;
       if(o.status===status)return 204;
-      if(o.status==='CANCELLED')return 409;
+      const [offer]=await tx.$queryRaw<{allocatedAt:Date|null}[]>`SELECT "allocatedAt" FROM "Offer" WHERE "batchId"=${o.batchId} FOR UPDATE`;
+      if(offer.allocatedAt||o.status==='CANCELLED')return 409;
       await tx.preorder.update({where:{id},data:{status}});
       if(status==='CANCELLED')await tx.offer.update({where:{batchId:o.batchId},data:{remainingKg:{increment:o.kg}}});
       return 204;

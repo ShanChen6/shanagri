@@ -163,3 +163,10 @@ Trong trang quản lý đơn, chọn **Xem trước phân bổ** ở lô đã ch
 Sản lượng thực thu được đề xuất cho các đơn đã xác nhận theo thời điểm đặt
 (tăng dần, cùng thời điểm thì theo mã đơn). Đơn chờ xác nhận hiển thị riêng,
 đơn hủy bị loại. Bản xem trước không ghi dữ liệu; chọn cập nhật để tính lại.
+
+### Chốt phân bổ
+Xử lý hết đơn đang chờ trước khi chốt. Chủ trại chỉnh số kg nguyên trong
+khoảng 0–số đã đặt cho từng đơn xác nhận; tổng không vượt thực thu. Bản xem
+trước cũ bị từ chối nếu tập đơn hoặc trạng thái thay đổi. Chốt một lần;
+sau đó không thể hủy đơn thuộc phương án. Liên kết tra cứu hiển thị cả số kg
+đặt ban đầu và số kg được phân bổ, kể cả khi phân bổ 0 kg.

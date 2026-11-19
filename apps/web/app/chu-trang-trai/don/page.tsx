@@ -44,7 +44,7 @@ export default function Orders(){
      }
      if(id){
        const r=await fetch('/api/owner-orders?id='+id+'&action='+action,{method:'POST',headers});
-       if(!r.ok)throw Error(r.status===409?'Đơn đã hủy. Tải lại danh sách.':'Không cập nhật được đơn.');
+       if(!r.ok)throw Error(r.status===409?'Đơn đã hủy hoặc lô đã chốt phân bổ. Tải lại danh sách.':'Không cập nhật được đơn.');
      }
      const r=await fetch('/api/owner-orders?page='+n+'&batch='+encodeURIComponent(batch),{headers,cache:'no-store'});
      if(!r.ok)throw Error(r.status===401?'Mã truy cập không hợp lệ.':'Không tải được danh sách.');

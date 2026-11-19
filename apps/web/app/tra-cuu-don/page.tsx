@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useState} from 'react';
-type Receipt={id:string;name:string;kg:number;priceVnd:number;totalVnd:number;batchId:string;status:'PENDING'|'CONFIRMED'|'CANCELLED'};
+type Receipt={allocatedKg:number|null;id:string;name:string;kg:number;priceVnd:number;totalVnd:number;batchId:string;status:'PENDING'|'CONFIRMED'|'CANCELLED'};
 export default function Lookup(){
  const [order,O]=useState<Receipt|null>(null),[message,M]=useState('Đang tải đơn…'),[version,V]=useState(0);
  useEffect(()=>{
@@ -20,7 +20,8 @@ export default function Lookup(){
  },[version]);
  return <main><h1>Tra cứu đơn đặt trước</h1><p role="status">{message}</p>{order&&<section>
  <h2>{order.name}</h2><p>Mã đơn: {order.id}</p><p>Trạng thái: {{PENDING:'Chờ xác nhận',CONFIRMED:'Đã xác nhận',CANCELLED:'Đã hủy'}[order.status]}</p>
- <p>{order.kg} kg × {order.priceVnd.toLocaleString('vi-VN')} ₫/kg · Tổng tiền: {order.totalVnd.toLocaleString('vi-VN')} ₫</p>
+ {order.allocatedKg!==null&&<p>Đã đặt: {order.kg} kg · Được phân bổ: {order.allocatedKg} kg</p>}
+ <p>{order.kg} kg × {order.priceVnd.toLocaleString('vi-VN')} ₫/kg · Giá trị đặt ban đầu: {order.totalVnd.toLocaleString('vi-VN')} ₫</p>
  <a href={'/lo/'+encodeURIComponent(order.batchId)}>Truy xuất nguồn gốc lô</a></section>}
  <button onClick={()=>V(n=>n+1)}>Cập nhật trạng thái</button></main>;
 }
