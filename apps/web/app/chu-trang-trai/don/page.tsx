@@ -1,4 +1,5 @@
 'use client';
+import AllocationPreview from './allocation-preview';
 import {useState} from 'react';
 type Order={id:string;kg:number;batchId:string;priceVnd:number;status:'PENDING'|'CONFIRMED'|'CANCELLED'};
 const label={PENDING:'Chờ xác nhận',CONFIRMED:'Đã xác nhận',CANCELLED:'Đã hủy'};
@@ -65,7 +66,7 @@ export default function Orders(){
  <label>Nhận đơn đến (giờ Việt Nam, không bắt buộc) <input type="datetime-local" name="deadline"/></label>
  <button>Xem lại và mở bán</button></fieldset></form></li>)}</ul>:<p>Chưa có lô nháp.</p>}
  <h2>Nhận đặt trước theo lô</h2>{offers.map(o=><section key={o.batchId}>{o.batchId} · Tổng hạn mức: {o.totalKg} kg · Đã giữ: {o.heldKg} kg · Còn nhận: {o.harvestDate?0:o.remainingKg} kg · {o.harvestDate?'Đã thu hoạch':o.closesAt&&Date.parse(o.closesAt)<=Date.now()?'Đã hết hạn':o.open?'Đang nhận đơn':'Đã tạm dừng'}{' '}
- {o.actualKg!==null?<p>Thực thu {o.actualKg} kg · {o.actualKg===o.heldKg?'Vừa đủ':o.actualKg<o.heldKg?'Thiếu '+(o.heldKg-o.actualKg)+' kg':'Dư '+(o.actualKg-o.heldKg)+' kg'} · <button disabled={busy} onClick={()=>load(1,undefined,undefined,undefined,o.batchId)}>Xem đơn đang giữ</button></p>:<>
+ {o.actualKg!==null?<><p>Thực thu {o.actualKg} kg · {o.actualKg===o.heldKg?'Vừa đủ':o.actualKg<o.heldKg?'Thiếu '+(o.heldKg-o.actualKg)+' kg':'Dư '+(o.actualKg-o.heldKg)+' kg'} · <button disabled={busy} onClick={()=>load(1,undefined,undefined,undefined,o.batchId)}>Xem đơn đang giữ</button></p><AllocationPreview code={o.batchId} ownerKey={key}/></>:<>
  <form onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget),actualKg=Number(f.get('actual')),harvestDate=String(f.get('day'));
  if(confirm('Chốt thu hoạch '+actualKg+' kg ngày '+harvestDate+' và ngừng nhận đơn cho '+o.batchId+'?'))void load(page,undefined,undefined,{batchId:o.batchId,actualKg,harvestDate});}}>
  <label>Ngày thực thu <input type="date" name="day" required/></label><label>Sản lượng thực thu (kg) <input type="number" min="0" max="2147483647" step="1" name="actual" required/></label>

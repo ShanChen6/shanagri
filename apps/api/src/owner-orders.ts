@@ -21,6 +21,21 @@ export function ownerOrders(db:PrismaClient){
       select:{id:true,name:true,zoneId:true,startDate:true,expectedHarvestDate:true}});
     res.json({zones,drafts,offers:offers.map(o=>({...o,heldKg:o.totalKg-o.remainingKg})),orders:rows.slice(0,25),hasMore:rows.length>25});
   });
+  router.get('/offers/:code/allocation-preview',async(req,res)=>{
+    const offer=await db.offer.findFirst({where:{batchId:req.params.code,batch:{zone:{pump:{farmId:'demo'}}}},
+      select:{batchId:true,actualKg:true,orders:{where:{status:{in:['CONFIRMED','PENDING']}},
+        orderBy:[{createdAt:'asc'},{id:'asc'}],select:{id:true,kg:true,createdAt:true,status:true}}}});
+    if(!offer){res.sendStatus(404);return;}
+    if(offer.actualKg===null){res.status(409).json({error:'Lô chưa chốt thu hoạch.'});return;}
+    let remainingKg=offer.actualKg;
+    const confirmed=offer.orders.filter(o=>o.status==='CONFIRMED').map(o=>{
+      const proposedKg=Math.min(o.kg,remainingKg);
+      remainingKg-=proposedKg;
+      return {...o,proposedKg,missingKg:o.kg-proposedKg};
+    });
+    res.json({batchId:offer.batchId,actualKg:offer.actualKg,remainingKg,confirmed,
+      pending:offer.orders.filter(o=>o.status==='PENDING')});
+  });
   router.post('/drafts',express.json({limit:'4kb'}),async(req,res)=>{
     const {name,zoneId,startDate,expectedHarvestDate}=req.body??{};
     function valid(s:unknown):s is string {

@@ -157,3 +157,9 @@ vẫn hoạt động.
 Trong quản lý đơn, chốt ngày thực thu và số kg nguyên (kể cả 0) cho từng lô đã mở bán.
 Mỗi lô chốt một lần, dừng nhận đơn; không đổi hạn mức cũ hoặc tự phân bổ lại đơn.
 Trang chủ trại so sánh sản lượng với lượng đang giữ và lọc đơn của lô. Trang công khai chỉ thêm ngày thu hoạch thực tế.
+
+### Xem trước phân bổ sau thu hoạch
+Trong trang quản lý đơn, chọn **Xem trước phân bổ** ở lô đã chốt thu hoạch.
+Sản lượng thực thu được đề xuất cho các đơn đã xác nhận theo thời điểm đặt
+(tăng dần, cùng thời điểm thì theo mã đơn). Đơn chờ xác nhận hiển thị riêng,
+đơn hủy bị loại. Bản xem trước không ghi dữ liệu; chọn cập nhật để tính lại.
