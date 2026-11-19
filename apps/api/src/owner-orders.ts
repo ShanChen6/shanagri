@@ -43,6 +43,24 @@ export function ownerOrders(db:PrismaClient){
     });
     res.status(result.status).json(result.body);
   });
+  router.post('/drafts/:code/publish',express.json({limit:'1kb'}),async(req,res)=>{
+    const {priceVnd,totalKg}=req.body??{};
+    if(![priceVnd,totalKg].every(n=>Number.isInteger(n)&&n>0&&n<=2147483647)){
+      res.status(400).json({error:'Giá và hạn mức phải là số nguyên dương.'});return;
+    }
+    const batchId=req.params.code;
+    const status=await db.$transaction(async tx=>{
+      const [batch]=await tx.$queryRaw<{published:boolean}[]>`SELECT b.published FROM "Batch" b
+        JOIN "Zone" z ON z.id=b."zoneId" JOIN "Pump" p ON p.id=z."pumpId"
+        WHERE b.id=${batchId} AND p."farmId"='demo' FOR UPDATE OF b`;
+      if(!batch)return 404;
+      if(batch.published)return 200;
+      await tx.offer.create({data:{batchId,priceVnd,totalKg,remainingKg:totalKg,open:true}});
+      await tx.batch.update({where:{id:batchId},data:{published:true}});
+      return 201;
+    });
+    res.status(status).json(status===404?{error:'Không tìm thấy lô.'}:{code:batchId});
+  });
   router.put('/offers/:code',express.json({limit:'1kb'}),async(req,res)=>{
     const {priceVnd,open,totalKg}=req.body??{};
     if(totalKg!==undefined){

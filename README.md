@@ -134,3 +134,9 @@ Vào /chu-trang-trai/don bằng mã chủ trang trại, nhập tên, vùng trồ
 hai ngày rồi lưu. Ví dụ với dữ liệu seed: Cam Sành, 01/03–31/03/2026.
 Hai khoảng cùng vùng và cùng kịch bản không được chung ngày, kể cả ngày biên.
 Lô nháp chưa có tin bán và chỉ hiển thị trong danh sách riêng của chủ trại.
+
+### Công bố và mở bán
+Ở /chu-trang-trai/don, chọn lô trong danh sách chưa công bố, nhập đơn giá
+VND/kg và hạn mức kg nguyên dương. Chọn **Xem lại và mở bán**, kiểm tra
+thông tin và xác nhận. Trang truy xuất và tin bán xuất hiện cùng lúc.
+Gửi lại lệnh công bố không cập nhật giá, tồn hoặc trạng thái nhận đơn.

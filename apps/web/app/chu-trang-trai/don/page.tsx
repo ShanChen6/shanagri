@@ -6,6 +6,18 @@ export default function Orders(){
  const [key,K]=useState(''),[rows,R]=useState<Order[]|null>(null),[page,P]=useState(1),[more,M]=useState(false),[msg,S]=useState(''),[busy,B]=useState(false);
  const [offers,O]=useState<{batchId:string;open:boolean;priceVnd:number;remainingKg:number;totalKg:number;heldKg:number}[]>([]);
  const [zones,Z]=useState<{id:string;name:string}[]>([]),[drafts,D]=useState<{id:string;name:string;zoneId:string;startDate:string;expectedHarvestDate:string}[]>([]);
+ async function publish(form:HTMLFormElement,d:(typeof drafts)[number]){
+   const data=new FormData(form),priceVnd=Number(data.get('price')),totalKg=Number(data.get('kg'));
+   const zone=zones.find(z=>z.id===d.zoneId)?.name??d.zoneId;
+   if(!confirm([d.name+' · '+d.id,zone+' · '+d.startDate.slice(0,10)+' – '+d.expectedHarvestDate.slice(0,10),
+     priceVnd.toLocaleString('vi-VN')+' ₫/kg · Nhận đặt trước '+totalKg+' kg','Công bố và mở bán trên chợ?'].join('\n')))return;
+   B(true);S('');
+   try{
+     const r=await fetch('/api/owner-publish',{method:'POST',headers:{authorization:'Bearer '+key,'Content-Type':'application/json'},body:JSON.stringify({code:d.id,priceVnd,totalKg})});
+     if(!r.ok)throw Error('Không thể công bố lô. Hãy tải lại danh sách.');
+     await load(page);S(r.status===201?'Đã công bố và mở bán lô '+d.id:'Lô đã được công bố trước đó.');
+   }catch(e){S(e instanceof Error?e.message:'Chưa xác nhận được kết quả.');}finally{B(false);}
+ }
  async function createDraft(form:HTMLFormElement){
    B(true);S('');
    try{
@@ -41,7 +53,11 @@ export default function Orders(){
  <label>Vùng trồng <select name="zoneId" required>{zones.map(z=><option key={z.id} value={z.id}>{z.name}</option>)}</select></label>
  <label>Ngày bắt đầu <input type="date" name="startDate" required/></label>
  <label>Dự kiến thu hoạch <input type="date" name="expectedHarvestDate" required/></label><button>Lưu lô nháp</button></fieldset></form>
- <h2>Lô chưa công bố</h2>{drafts.length?<ul>{drafts.map(d=><li key={d.id}>{d.name} · {d.id} · {zones.find(z=>z.id===d.zoneId)?.name} · {d.startDate.slice(0,10)} – {d.expectedHarvestDate.slice(0,10)}</li>)}</ul>:<p>Chưa có lô nháp.</p>}
+ <h2>Lô chưa công bố</h2>{drafts.length?<ul>{drafts.map(d=><li key={d.id}>{d.name} · {d.id} · {zones.find(z=>z.id===d.zoneId)?.name} · {d.startDate.slice(0,10)} – {d.expectedHarvestDate.slice(0,10)}
+ <form onSubmit={e=>{e.preventDefault();void publish(e.currentTarget,d);}}><fieldset disabled={busy}><legend>Điều kiện mở bán</legend>
+ <label>Giá (₫/kg) <input name="price" type="number" min="1" max="2147483647" step="1" required/></label>
+ <label>Hạn mức (kg) <input name="kg" type="number" min="1" max="2147483647" step="1" required/></label>
+ <button>Xem lại và mở bán</button></fieldset></form></li>)}</ul>:<p>Chưa có lô nháp.</p>}
  <h2>Nhận đặt trước theo lô</h2>{offers.map(o=><section key={o.batchId}>{o.batchId} · Tổng hạn mức: {o.totalKg} kg · Đã giữ: {o.heldKg} kg · Còn bán: {o.remainingKg} kg · {o.open?'Đang nhận đơn':'Đã tạm dừng'}{' '}
  <button disabled={busy} onClick={()=>load(page,undefined,undefined,{batchId:o.batchId,open:!o.open})}>{o.open?'Tạm dừng nhận đơn':'Mở lại'}</button>
  <form key={'cap'+o.totalKg} onSubmit={e=>{e.preventDefault();void load(page,undefined,undefined,{batchId:o.batchId,totalKg:Number(new FormData(e.currentTarget).get('capacity'))});}}>
