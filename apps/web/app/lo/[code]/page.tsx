@@ -15,6 +15,7 @@ export default async function BatchPage({params}:{params:Promise<{code:string}>}
   return <main><h1>{b.name}</h1><p>Mã lô: {b.code} · {b.farm} · {b.zone}</p>
     <p>Bắt đầu: {date(b.startDate)} · Dự kiến thu hoạch: {date(b.expectedHarvestDate)}</p>
     {b.offer?.open && <Order code={b.code} price={b.offer.priceVnd} remaining={b.offer.remainingKg}/>}
+    {b.offer && !b.offer.open && <p>Lô đang tạm dừng nhận đặt trước.</p>}
     <h2>Nhật ký độ ẩm mô phỏng</h2><p>Dữ liệu ước tính từ kịch bản thời tiết giả lập.</p>
     {!b.history.length?<p>Chưa có ngày mô phỏng cho lô này.</p>:
     <table><thead><tr><th>Ngày</th><th>Độ ẩm ước tính</th><th>Nhu cầu tưới</th></tr></thead>

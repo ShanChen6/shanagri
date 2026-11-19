@@ -108,3 +108,7 @@ và khởi động lại API. Mở /chu-trang-trai/don và nhập mã này. Mã 
 cho trang trại demo, không phải tài khoản người mua. Đơn đang chờ có thể
 xác nhận hoặc hủy; đơn đã xác nhận cũng có thể hủy. Đơn đã hủy không mở lại.
 Hủy nhiều lần chỉ hoàn kg một lần. Danh sách phân trang 25 đơn.
+
+Trong trang quản lý đơn, chủ trang trại có thể **Tạm dừng nhận đơn** hoặc
+**Mở lại** từng lô. Trạng thái này không thay đổi hạn mức còn lại hoặc các
+đơn đã giữ chỗ; gửi lại đúng yêu cầu cũ vẫn trả về đơn đã đặt.
