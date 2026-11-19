@@ -2,12 +2,19 @@ import {holdRoutes,sweep,ready,mac,phoneNumber,pin,deliver} from './holds.ts';
 import {createHash} from 'node:crypto';
 import {ownerOrders} from "./owner-orders.ts";
 import {deviceRouter} from "./device.ts";
-import express from 'express';
+import express, { type RequestHandler } from 'express';
 import { PrismaClient } from '@prisma/client';
 import {scenario, weather, simulate, days} from './day-one.ts';
 import {advance,enqueue,lockPump} from './queue.ts';
 const app = express();
 const db = new PrismaClient();
+const requireDemoControls: RequestHandler = (_, res, next) => {
+  if (process.env.DEMO_CONTROLS_ENABLED === 'false') {
+    res.sendStatus(403);
+    return;
+  }
+  next();
+};
 app.use("/api/public/hold",holdRoutes(db));
 app.use("/api/farms/demo/owner/orders",ownerOrders(db));
 app.use("/api/devices/virtual-cam",deviceRouter(db));
@@ -25,7 +32,7 @@ app.get('/api/farms/demo/zones', async (_, res) => {
     ...d, rainMm:days[d.simulatedDate.getUTCDate()-1].rainMm
   }))})));
 });
-app.post(['/api/farms/demo/simulation/day-one','/api/farms/demo/simulation/days/:day'], async (req, res) => {
+app.post(['/api/farms/demo/simulation/day-one','/api/farms/demo/simulation/days/:day'], requireDemoControls, async (req, res) => {
   const n = req.params.day === undefined ? 1 : Number(req.params.day);
   if (!Number.isInteger(n) || n < 1 || n > days.length) {
     res.status(400).json({error:'Ngày nằm ngoài kịch bản'}); return;
@@ -54,7 +61,7 @@ app.post(['/api/farms/demo/simulation/day-one','/api/farms/demo/simulation/days/
   });
   res.status(status).json(status===200 ? {source:'SIMULATION',scenario,weather:input} : {error:'Cần tạo vùng mẫu và chạy ngày trước đó'});
 });
-app.post('/api/farms/demo/simulation/reset', async (_, res) => {
+app.post('/api/farms/demo/simulation/reset', requireDemoControls, async (_, res) => {
   const allowed=await db.$transaction(async tx => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(527005)`;
     const pumps=await tx.pump.findMany({where:{farmId:"demo"},orderBy:{id:"asc"}});
@@ -66,7 +73,7 @@ app.post('/api/farms/demo/simulation/reset', async (_, res) => {
   });
   res.sendStatus(allowed?204:409);
 });
-app.post('/api/farms/demo/zones/:id/irrigate',async(req,res)=>{
+app.post('/api/farms/demo/zones/:id/irrigate',requireDemoControls,async(req,res)=>{
   const job=await db.$transaction(async tx=>{
     const z=await tx.zone.findFirst({where:{id:req.params.id,pump:{farmId:'demo'}}});
     if(!z)return null;

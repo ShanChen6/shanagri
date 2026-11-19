@@ -17,7 +17,7 @@ export default async function Home() {
   const total = zones?.[0]?.totalDays ?? 0;
   return <PageContainer><h1>Shanagri</h1><h2>Vùng trồng tại trang trại mẫu</h2>
     <p>Kịch bản nắng/mưa giả lập · Độ ẩm ban đầu 50%. {total > 0 && `Đã chạy ${count}/${total} ngày.`}</p>
-    <Controls count={count} total={total}/>
+    {process.env.DEMO_CONTROLS_ENABLED !== 'false' && <Controls count={count} total={total}/>}
     {zones === null ? <p>Không tải được vùng trồng. Vui lòng thử lại.</p> :
       zones.length === 0 ? <p>Chưa có vùng trồng.</p> : zones.map(z =>
         <Card as="section" key={z.id}><h3>{z.name}</h3><p>Giống cây: {z.plantProfile.name} · {z.pump.name}</p>

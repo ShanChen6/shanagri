@@ -33,6 +33,7 @@ export default async function Market({
     <PageContainer>
       <StockRefresh/>
       <h1>Chợ nông sản</h1>
+      <p><Link href="/tra-cuu-don">Tra cứu đơn đã đặt</Link></p>
       <p>Tìm lô nông sản và xem ngày thu hoạch dự kiến. Đây là chợ thử nghiệm, không thu tiền.</p>
 
       <form action="/cho-nong-san" method="get" aria-label="Tìm và lọc lô"

@@ -119,6 +119,8 @@ API `POST /api/public/batches/:code/preorders` nhận `id` (UUID), `kg`, `phone`
 
 Sau khi giữ chỗ, khách mở hoặc sao chép liên kết riêng để xác minh, xem quyết định hủy, kết quả phân bổ và tiến độ giao hàng. Token nằm sau dấu `#`, được gửi qua header `Authorization`. PostgreSQL lưu mã băm SHA-256 của token. Ai có liên kết đều có thể tra cứu đơn tương ứng, nên hãy giữ liên kết riêng. Mã đơn chỉ dùng để đối chiếu với chủ trại.
 
+Trang tra cứu mở từ **Tra cứu đơn đã đặt** trên Chợ nông sản. Sau khi đặt thành công, trình duyệt lưu liên kết gần nhất trong thẻ hiện tại để mở lại sau khi tải trang. Có thể chọn **Quên liên kết trong thẻ này** để xóa bản lưu. URL gốc vẫn tra cứu được.
+
 ## Quản lý đơn của chủ trại
 
 Đặt `DEMO_OWNER_TOKEN` thành một chuỗi bí mật riêng trong `.env`, khởi động lại API rồi nhập mã tại `/chu-trang-trai/don`. Trong **Danh sách đơn**, có thể tìm theo mã đơn đầy đủ và kết hợp bộ lọc theo lô, trạng thái, tiến độ soạn/giao hoặc yêu cầu hủy đang chờ. Danh sách hiển thị tổng số đơn phù hợp và tối đa 25 đơn mỗi trang.
@@ -167,3 +169,11 @@ python tests/acceptance/browser.py
 ```
 
 Cài Python Playwright theo phiên bản trong workflow. Bộ kiểm thử đi từ công bố lô, đặt trước và xác minh OTP đến phân bổ, CSV, soạn và giao hàng loạt. Hộp thư kiểm thử chỉ dành cho môi trường nghiệm thu. Việc nhận SMS trên điện thoại thật cần kiểm tra riêng với nhà cung cấp.
+
+
+## Nghiệm thu trước khi mở cho khách
+
+- Dùng web HTTPS, API và PostgreSQL riêng cho staging. Đặt `API_BASE_URL` trong môi trường của web và áp dụng migration lên database đích trước khi khởi động API. Chạy seed demo và kịch bản nghiệm thu trên database thử nghiệm.
+- Đặt `DEMO_CONTROLS_ENABLED=false` trong môi trường của cả web và API dành cho khách. Xác minh trang tổng quan ẩn nút mô phỏng, các thao tác chạy, reset và gửi yêu cầu tưới trả `403`, còn trang chợ và truy xuất vẫn mở được.
+- Cấu hình bộ chuyển tiếp SMS thật qua HTTPS bằng `SMS_WEBHOOK_URL` và `SMS_WEBHOOK_TOKEN`, cùng `OTP_SECRET` riêng của môi trường. Từ web staging, đặt một đơn bằng số thử đã được phép, nhận SMS trên điện thoại và nhập mã để xác minh. Kiểm tra khách thấy đơn chờ xác nhận, chủ trại thấy đúng đơn và thao tác hủy trả lại hạn mức.
+- Kiểm tra `GET /health/ready` của API, luồng giữ chỗ đến giao hàng trên staging và kết quả nhận OTP thật trước khi mở đặt hàng cho khách. Cất mã chủ trại và các khóa trong cấu hình bí mật của môi trường.

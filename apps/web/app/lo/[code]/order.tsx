@@ -1,7 +1,8 @@
 'use client';
+import { lastReceipt, rememberReceipt } from '../../../lib/last-receipt';
 import { formatKg, formatVnd } from '../../../lib/format';
 import { Button, Card, StatusMessage, TextField } from '../../../components/ui';
-import {useRef,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {useRouter} from 'next/navigation';
 type OrderOffer = { remainingKg: number; priceVnd: number };
 
@@ -11,6 +12,19 @@ export default function Order({code,offer}:{code:string;offer:OrderOffer|null}){
  const [phone,P]=useState('');
  const [link,L]=useState(''),secret=useRef('');
  const key=useRef(''),lock=useRef(false),router=useRouter();
+ useEffect(()=>{
+   function restoreLink(){
+     const saved=lastReceipt();
+     L(saved?.batch===code ? location.origin+'/tra-cuu-don#'+saved.token : '');
+   }
+   restoreLink();
+   // A restored page may predate forgetting the link on the lookup page.
+   function restoreFromHistory(event:PageTransitionEvent){
+     if(event.persisted)restoreLink();
+   }
+   window.addEventListener('pageshow',restoreFromHistory);
+   return ()=>window.removeEventListener('pageshow',restoreFromHistory);
+ },[code]);
  async function submit(){
    if(lock.current || !offer || kg<1 || kg>offer.remainingKg)return;
    lock.current=true;setBusy(true);setMsg('');
@@ -18,7 +32,7 @@ export default function Order({code,offer}:{code:string;offer:OrderOffer|null}){
      key.current ||= crypto.randomUUID();
      secret.current ||= Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
      const res=await fetch('/api/preorder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code,phone,id:key.current,kg,expectedPriceVnd:offer.priceVnd,lookupToken:secret.current})});
-     if(res.ok){const o=await res.json();setMsg('Đã giữ '+formatKg(o.kg)+'. Mở liên kết bên dưới để xác minh số điện thoại trong 10 phút.');L(location.origin+'/tra-cuu-don#'+secret.current);secret.current='';key.current='';}
+     if(res.ok){const o=await res.json();setMsg('Đã giữ '+formatKg(o.kg)+'. Mở liên kết bên dưới để xác minh số điện thoại trong 10 phút.');rememberReceipt({batch:code,token:secret.current});L(location.origin+'/tra-cuu-don#'+secret.current);secret.current='';key.current='';}
      else if(res.status===409){
        const problem=await res.json();
        setMsg(problem.error==='INSUFFICIENT_STOCK'?

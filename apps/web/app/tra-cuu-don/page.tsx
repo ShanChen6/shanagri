@@ -1,27 +1,55 @@
 'use client';
+import { forgetReceipt, lastReceipt, lookupTokenPattern } from '../../lib/last-receipt';
 import { formatClockTime, formatKg, formatVnd } from '../../lib/format';
 import { FulfillmentStatus, type FulfillmentTimes } from '../../components/orders/fulfillment-status';
 import { OrderStatusBadge, type OrderStatus } from '../../components/orders/order-status-badge';
-import { Button, PageContainer, StatusMessage, TextField } from '../../components/ui';
+import { Button, Card, PageContainer, StatusMessage, TextField } from '../../components/ui';
 import {useEffect,useRef,useState} from 'react';
 type Receipt=FulfillmentTimes&{allocatedKg:number|null;id:string;name:string;kg:number;priceVnd:number;totalVnd:number;batchId:string;expiresAt:string|null;cancelRequested:boolean;cancelDecision:string|null;status:OrderStatus};
 type LookupAction = 'verify' | 'resend' | 'cancel';
 
 export default function Lookup(){
  const [token,setToken]=useState<string|null>(null);
+ const [saved,setSaved]=useState<ReturnType<typeof lastReceipt>>(null);
+ const [storageError,setStorageError]=useState('');
+
 
  useEffect(()=>{
-   const readToken=()=>setToken(window.location.hash.slice(1));
+   const readToken=()=>{
+     setToken(window.location.hash.slice(1));
+     setSaved(lastReceipt());
+     setStorageError('');
+   };
    window.addEventListener('hashchange',readToken);
+   window.addEventListener('pageshow',readToken);
    readToken();
-   return ()=>window.removeEventListener('hashchange',readToken);
+   return ()=>{
+     window.removeEventListener('hashchange',readToken);
+     window.removeEventListener('pageshow',readToken);
+   };
  },[]);
 
  return (
    <PageContainer>
      <h1>Tra cứu đơn đặt trước</h1>
      {token===null ? <StatusMessage>Đang tải đơn…</StatusMessage> :
-       !/^[a-f0-9]{64}$/.test(token) ? <StatusMessage>Liên kết không hợp lệ.</StatusMessage> :
+       token==='' ? (
+         <Card as="section">
+           <h2>Đơn gần nhất trong thẻ này</h2>
+           {saved ? <>
+             <p>Liên kết đã lưu cho lô <span className="record-id">{saved.batch}</span>.</p>
+             <div className="action-row">
+               <a href={'#'+saved.token}>Mở đơn gần nhất</a>
+               <Button variant="quiet" onClick={()=>{
+                 if(forgetReceipt(saved.token)){setSaved(null);setStorageError('');}
+                 else setStorageError('Chưa xóa được bản lưu. Vui lòng thử lại.');
+               }}>Quên liên kết trong thẻ này</Button>
+             </div>
+             <p>Quên liên kết chỉ xóa bản lưu trong thẻ này. URL riêng vẫn tra cứu được.</p>
+             <StatusMessage>{storageError}</StatusMessage>
+           </> : <p>Mở liên kết riêng đã nhận khi đặt trước để xem trạng thái đơn.</p>}
+         </Card>
+       ) : !lookupTokenPattern.test(token) ? <StatusMessage>Liên kết không hợp lệ.</StatusMessage> :
        <ReceiptLookup key={token} token={token}/>}
    </PageContainer>
  );
@@ -59,6 +87,7 @@ function ReceiptLookup({token}:{token:string}){
      try{const r=await fetch('/api/lookup',{headers:{authorization:'Bearer '+token},cache:'no-store',signal:c.signal});
        if(c.signal.aborted)return;
        if(r.status===404){
+         forgetReceipt(token);
          O(null);M('Không tìm thấy đơn theo liên kết này.');return;
        }
        if(!r.ok)throw Error('Không tải được đơn.');
