@@ -1,3 +1,4 @@
+import {holdRoutes,sweep,ready,mac,phoneNumber,pin,deliver} from './holds.ts';
 import {createHash} from 'node:crypto';
 import {ownerOrders} from "./owner-orders.ts";
 import {deviceRouter} from "./device.ts";
@@ -7,6 +8,7 @@ import {scenario, weather, simulate, days} from './day-one.ts';
 import {advance,enqueue,lockPump} from './queue.ts';
 const app = express();
 const db = new PrismaClient();
+app.use("/api/public/hold",holdRoutes(db));
 app.use("/api/farms/demo/owner/orders",ownerOrders(db));
 app.use("/api/devices/virtual-cam",deviceRouter(db));
 app.get('/health/live', (_, res) => res.json({status:'ok'}));
@@ -89,6 +91,7 @@ app.get('/api/farms/demo/irrigation-history',async(req,res)=>{
 });
 async function tick(){
   try{
+    await sweep(db);
     const pumps=await db.irrigation.findMany({where:{status:{in:['RUNNING','PENDING']}},distinct:['pumpId'],select:{pumpId:true}});
     for(const {pumpId} of pumps) await db.$transaction(async tx=>{await lockPump(tx,pumpId); await advance(tx,pumpId);});
   }catch(error){console.error('Irrigation worker:',error);}
@@ -122,7 +125,7 @@ app.get('/api/public/order-lookup',async(req,res)=>{
   res.set('Cache-Control','no-store');
   const token=req.headers.authorization?.match(/^Bearer ([a-f0-9]{64})$/)?.[1];
   if(!token){res.sendStatus(404);return;}
-  const order=await db.preorder.findUnique({where:{lookupHash:digest(token)},select:{allocatedKg:true,id:true,kg:true,priceVnd:true,status:true,
+  const order=await db.preorder.findUnique({where:{lookupHash:digest(token)},select:{expiresAt:true,cancelRequested:true,allocatedKg:true,id:true,kg:true,priceVnd:true,status:true,
     batchId:true,offer:{select:{batch:{select:{name:true}}}}}});
   if(!order){res.sendStatus(404);return;}
   const {offer,...receipt}=order;
@@ -131,7 +134,10 @@ app.get('/api/public/order-lookup',async(req,res)=>{
 app.post('/api/public/batches/:code/preorders',express.json({limit:'2kb'}),async(req,res)=>{
   const {id,kg,lookupToken}=req.body??{};
   if(lookupToken!==undefined && (typeof lookupToken!=='string'||!/^[a-f0-9]{64}$/.test(lookupToken))){res.sendStatus(400);return;}
-  const lookupHash=lookupToken?digest(lookupToken):null;
+  const phone=phoneNumber(req.body.phone);
+  if(!phone||!lookupToken){res.sendStatus(400);return;}
+  if(!ready()){res.status(503).json({error:'SMS_UNAVAILABLE'});return;}
+  const lookupHash=digest(lookupToken),phoneHash=mac('phone:'+phone),otp=pin();
   if(typeof id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)||!Number.isSafeInteger(kg)||kg<1||kg>1000){res.sendStatus(400);return;}
   const batchId=req.params.code;
   const result=await db.$transaction(async tx=>{
@@ -139,18 +145,26 @@ app.post('/api/public/batches/:code/preorders',express.json({limit:'2kb'}),async
     const rows=await tx.$queryRaw<{priceVnd:number;remainingKg:number;open:boolean;closesAt:Date|null}[]>`SELECT o.* FROM "Offer" o JOIN "Batch" b ON b.id=o."batchId" WHERE b.published AND b.id=${batchId} FOR UPDATE OF o`;
     if(!rows.length)return {status:404};
     const prior=await tx.preorder.findUnique({where:{id}});
-    if(prior)return prior.batchId===batchId && prior.kg===kg && prior.lookupHash===lookupHash?{status:200,order:prior}:{status:409};
+    if(prior && ['CANCELLED','EXPIRED'].includes(prior.status))return {status:410};
+    if(prior)return prior.phoneHash===phoneHash && prior.batchId===batchId && prior.kg===kg && prior.lookupHash===lookupHash?{status:200,order:prior}:{status:409};
     if(req.body.expectedPriceVnd!==undefined && req.body.expectedPriceVnd!==rows[0].priceVnd)return {status:412};
     if(!rows[0].open)return {status:409};
     if(rows[0].closesAt && rows[0].closesAt.getTime()<=Date.now())return {status:410};
     if(rows[0].remainingKg<kg)return {status:409,available:rows[0].remainingKg};
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(12345,hashtext(${phoneHash}))`;
+    const recent=await tx.preorder.count({where:{phoneHash,createdAt:{gte:new Date(Date.now()-3600000)}}});
+    if(recent>=3||await tx.preorder.count({where:{phoneHash,status:'HOLD'}}))return {status:429};
+    // Bound SMS dispatch even when a caller rotates phone numbers.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(12346,0)`;
+    if(await tx.preorder.count({where:{phoneHash:{not:null},createdAt:{gte:new Date(Date.now()-600000)}}})>=60)return {status:429};
     const held=await tx.$executeRaw`UPDATE "Offer" SET "remainingKg"="remainingKg"-${kg} WHERE "batchId"=${batchId}
       AND ("closesAt" IS NULL OR clock_timestamp()<"closesAt")`;
     if(!held)return {status:410};
-    const order=await tx.preorder.create({data:{id,batchId,kg,lookupHash,priceVnd:rows[0].priceVnd}});
+    const order=await tx.preorder.create({data:{id,batchId,kg,lookupHash,phoneHash,status:"HOLD",expiresAt:new Date(Date.now()+600000),sentAt:new Date(),sends:1,otpHash:mac(id.toLowerCase()+":"+otp),priceVnd:rows[0].priceVnd}});
     return {status:201,order};
   });
-  const receipt=result.order?{id:result.order.id,kg:result.order.kg,batchId:result.order.batchId,priceVnd:result.order.priceVnd}:null;
+  if(result.status===201){try{await deliver(phone,otp);}catch{/* Hold remains accessible for resend or immediate cancellation. */}}
+  const receipt=result.order?{status:result.order.status,expiresAt:result.order.expiresAt,id:result.order.id,kg:result.order.kg,batchId:result.order.batchId,priceVnd:result.order.priceVnd}:null;
   res.status(result.status).json(receipt??(result.available!==undefined?{error:'INSUFFICIENT_STOCK',remainingKg:result.available}:{error:'Không thể giữ số lượng yêu cầu'}));
 });
 app.listen(Number(process.env.API_PORT ?? 4000));

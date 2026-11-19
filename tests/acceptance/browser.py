@@ -1,5 +1,6 @@
 """Run on the isolated acceptance stack after api.mjs."""
 import os
+import urllib.request
 from playwright.sync_api import sync_playwright, expect
 
 BASE = "http://127.0.0.1:3000"
@@ -25,12 +26,17 @@ with sync_playwright() as pw:
         buyer = browser.new_page()
         buyer.goto(BASE + "/cho-nong-san")
         buyer.locator("article").filter(has_text="Lô nghiệm thu UI").get_by_role("link", name="Đặt trước").click()
+        phone = "090000002" + str(len(buyers))
+        buyer.get_by_label("Số điện thoại",exact=True).fill(phone)
         buyer.get_by_label("Số kg").fill(str(kg))
         buyer.get_by_role("button", name="Giữ chỗ").click()
         link = buyer.get_by_role("link", name="Tra cứu đơn vừa đặt")
         expect(link).to_be_visible()
         code = buyer.url.split("/lo/")[1].split("#")[0]
         link.click()
+        req = urllib.request.Request("http://127.0.0.1:4599/+84"+phone[1:],headers={"Authorization":"Bearer "+os.environ["SMS_WEBHOOK_TOKEN"]})
+        buyer.get_by_label("Mã OTP").fill(urllib.request.urlopen(req).read().decode())
+        buyer.get_by_role("button",name="Xác minh số điện thoại").click()
         expect(buyer.get_by_text("Trạng thái: Chờ xác nhận")).to_be_visible()
         buyers.append(buyer)
     owner.get_by_role("button", name="Xem danh sách").click()
@@ -56,6 +62,7 @@ with sync_playwright() as pw:
     for tab in (first, late):
         tab.goto(BASE + "/lo/CAM-2026-02")
         expect(tab.get_by_label("Số kg")).to_have_attribute("max", "35")
+        tab.get_by_label("Số điện thoại",exact=True).fill("0900000031" if tab==first else "0900000032")
         tab.get_by_label("Số kg").fill("25")
     first.get_by_role("button", name="Giữ chỗ").click()
     expect(first.get_by_role("link", name="Tra cứu đơn vừa đặt")).to_be_visible()

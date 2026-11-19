@@ -22,6 +22,9 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:acceptance@127.0.0.1:5432/acceptance
       DEMO_OWNER_TOKEN: local-acceptance-only
+      OTP_SECRET: local-acceptance-secret-for-tests-only
+      SMS_WEBHOOK_TOKEN: local-acceptance-sms
+      SMS_WEBHOOK_URL: http://127.0.0.1:4599
       API_BASE_URL: http://127.0.0.1:4000
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +40,7 @@ jobs:
       - run: pip install playwright==1.55.0 && python -m playwright install --with-deps chromium
       - name: Run API and browser acceptance
         run: |
+          node tests/acceptance/sms.mjs &
           node apps/api/src/server.ts > /tmp/shanagri-api.log 2>&1 &
           (cd apps/web && ../../node_modules/.bin/next start -H 127.0.0.1) > /tmp/shanagri-web.log 2>&1 &
           curl --retry 20 --retry-connrefused --retry-delay 1 -fsS http://127.0.0.1:4000/health/ready

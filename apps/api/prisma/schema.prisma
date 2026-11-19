@@ -107,6 +107,15 @@ model Offer {
   orders Preorder[]
 }
 model Preorder {
+  expiresAt DateTime? @db.Timestamptz
+  phoneHash String?
+  otpHash String?
+  attempts Int @default(0)
+  sentAt DateTime? @db.Timestamptz
+  sends Int @default(0)
+  cancelRequested Boolean @default(false)
+  @@index([status,expiresAt],map:"hold_expiry")
+  @@index([phoneHash,createdAt],map:"phone_orders")
   allocatedKg Int?
   lookupHash String? @unique
   status String @default("PENDING")

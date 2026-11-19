@@ -188,3 +188,22 @@ Số kg trên chợ và trang lô là số còn nhận đặt, được tải l�
 khi tab hiển thị và khi quay lại tab. Khi khách gửi đơn từ trang cũ, API
 kiểm tra lại trong giao dịch. Nếu không đủ, trả 409 INSUFFICIENT_STOCK kèm
 remainingKg; khách tự chọn lại số kg. Không tự động tạo đơn một phần.
+
+### Giữ chỗ và xác minh số điện thoại
+Cấu hình OTP_SECRET (chuỗi ngẫu nhiên riêng, ít nhất 32 ký tự) và bộ chuyển tiếp
+SMS của bạn: SMS_WEBHOOK_URL (HTTPS), SMS_WEBHOOK_TOKEN. API gửi POST JSON
+{to,message} với Authorization: Bearer TOKEN. Bộ chuyển tiếp cần gửi SMS tới
+số Việt Nam ở dạng +84. Khi chưa cấu hình, không tạo giữ chỗ mới. Không cần
+chuyển đổi các đơn đã đặt trước migration 0016.
+
+Giữ chỗ 10 phút theo thời gian thực. Mỗi số: một giữ chỗ chưa xác minh,
+tối đa 3 lượt tạo/giờ. OTP thử tối đa 5 lần; gửi lại cách nhau 60 giây,
+tối đa 3 SMS/lượt, không gia hạn. Mở liên kết tra cứu để xác minh hoặc hủy.
+Xác minh giữ nguyên thời điểm xếp FIFO. Worker hoàn kg cho lượt hết hạn kể
+cả sau khởi động lại. Sau xác nhận của chủ trại, yêu cầu hủy không hoàn kg
+cho đến khi chủ trại duyệt. Không mở lại lô đã đóng.
+CI dùng hộp thư SMS cục bộ tests/acceptance/sms.mjs, với ba biến môi trường
+như trong workflow. Không triển khai hộp thư kiểm thử lên môi trường thật.
+Mỗi 10 phút toàn hệ thống nhận tối đa 60 lượt giữ chỗ mới cần SMS. Nếu
+trang trại còn giữ chỗ chưa xác minh, hãy đợi khách xác minh, hủy hoặc hết
+hạn trước khi chốt thu hoạch. Kiểm thử không chứng minh SMS đã tới điện thoại thật.

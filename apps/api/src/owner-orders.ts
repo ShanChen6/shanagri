@@ -16,7 +16,7 @@ export function ownerOrders(db:PrismaClient){
   router.get('/',async(req,res)=>{
     const page=Number(req.query.page??1);
     if(!Number.isInteger(page)||page<1||page>100000){res.sendStatus(400);return;}
-    const rows=await db.preorder.findMany({where:{...scope,...(typeof req.query.batch==='string'&&req.query.batch?{batchId:req.query.batch,status:{not:'CANCELLED'}}:{})},orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*25,take:26});
+    const rows=await db.preorder.findMany({where:{...scope,...(typeof req.query.batch==='string'&&req.query.batch?{batchId:req.query.batch,status:{in:['PENDING','CONFIRMED','HOLD']}}:{})},orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*25,take:26,select:{id:true,batchId:true,kg:true,priceVnd:true,status:true,cancelRequested:true,createdAt:true}});
     const offers=await db.offer.findMany({where:{batch:{zone:{pump:{farmId:'demo'}}}},orderBy:{batchId:'asc'},
       select:{actualKg:true,harvestDate:true,batchId:true,open:true,closesAt:true,totalKg:true,remainingKg:true,priceVnd:true}});
     const zones=await db.zone.findMany({where:{pump:{farmId:'demo'}},select:{id:true,name:true},orderBy:{name:'asc'}});
@@ -121,8 +121,11 @@ export function ownerOrders(db:PrismaClient){
       if(!Number.isInteger(actualKg)||actualKg<0||actualKg>2147483647||!Number.isFinite(+day)||day.toISOString().slice(0,10)!==harvestDate||harvestDate>today){
         res.sendStatus(400);return;
       }
-      const result=await db.offer.updateMany({where:{batchId:req.params.code,harvestDate:null,
-        batch:{startDate:{lte:day},zone:{pump:{farmId:'demo'}}}},data:{actualKg,harvestDate:day,open:false}});
+      const result=await db.$transaction(async tx=>{
+        await tx.$queryRaw`SELECT "batchId" FROM "Offer" WHERE "batchId"=${req.params.code} FOR UPDATE`;
+        return tx.offer.updateMany({where:{batchId:req.params.code,harvestDate:null,
+        orders:{none:{status:'HOLD'}},batch:{startDate:{lte:day},zone:{pump:{farmId:'demo'}}}},data:{actualKg,harvestDate:day,open:false}});
+      });
       res.sendStatus(result.count?204:409);return;
     }
     if(totalKg!==undefined){
@@ -157,8 +160,8 @@ export function ownerOrders(db:PrismaClient){
       if(!o)return 404;
       if(o.status===status)return 204;
       const [offer]=await tx.$queryRaw<{allocatedAt:Date|null}[]>`SELECT "allocatedAt" FROM "Offer" WHERE "batchId"=${o.batchId} FOR UPDATE`;
-      if(offer.allocatedAt||o.status==='CANCELLED')return 409;
-      await tx.preorder.update({where:{id},data:{status}});
+      if(offer.allocatedAt||['CANCELLED','EXPIRED'].includes(o.status)||(o.status==='HOLD'&&status==='CONFIRMED'))return 409;
+      await tx.preorder.update({where:{id},data:{status,cancelRequested:false,otpHash:null}});
       if(status==='CANCELLED')await tx.offer.update({where:{batchId:o.batchId},data:{remainingKg:{increment:o.kg}}});
       return 204;
     });
