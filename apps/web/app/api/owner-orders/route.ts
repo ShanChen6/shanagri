@@ -12,8 +12,8 @@ async function proxy(req:Request){
     const code=url.searchParams.get('code')??'';
     if(!/^[A-Za-z0-9_-]{1,100}$/.test(code))return new Response(null,{status:400});
     const data=await req.json().catch(()=>null);
-    if(typeof data?.open!=='boolean' && !Number.isInteger(data?.priceVnd))return new Response(null,{status:400});
-    suffix='/offers/'+encodeURIComponent(code);body=JSON.stringify({open:data.open,priceVnd:data.priceVnd});
+    if(typeof data?.open!=='boolean' && !Number.isInteger(data?.priceVnd) && !Number.isInteger(data?.totalKg))return new Response(null,{status:400});
+    suffix='/offers/'+encodeURIComponent(code);body=JSON.stringify({open:data.open,priceVnd:data.priceVnd,totalKg:data.totalKg});
   }
   const r=await fetch(base+suffix,{method:req.method,body,headers:{'Content-Type':'application/json',authorization:req.headers.get('authorization')??''},cache:'no-store',signal:AbortSignal.timeout(6000)});
   return new Response(r.body,{status:r.status,headers:{'Cache-Control':'no-store','Content-Type':r.headers.get('content-type')??'text/plain'}});

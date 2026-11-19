@@ -96,6 +96,7 @@ model Batch {
 model Offer {
   batchId String @id
   batch Batch @relation(fields:[batchId],references:[id])
+  totalKg Int
   remainingKg Int
   priceVnd Int
   open Boolean @default(true)

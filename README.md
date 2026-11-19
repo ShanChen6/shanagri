@@ -123,3 +123,8 @@ giá và số lượng hiện có. Ngày thu hoạch trong dữ liệu mẫu là
 Chủ trang trại có thể đổi đơn giá nguyên VND/kg của từng lô ở trang quản lý.
 Đơn cũ giữ giá lúc đặt. Form khách gửi expectedPriceVnd; nếu giá đổi trước
 khi giữ chỗ, API trả 412, không trừ hạn mức và trang tải lại giá.
+
+Tại /chu-trang-trai/don, nhập tổng hạn mức mới (kg nguyên) khi dự báo sản
+lượng thay đổi. Đã giữ gồm đơn chờ và đơn xác nhận. Còn bán = tổng hạn mức
+trừ đã giữ. Có thể giảm về đúng số đã giữ; hệ thống từ chối giảm thấp hơn.
+Migration 0011 khôi phục tổng hạn mức từ lượng còn bán và các đơn chưa hủy.

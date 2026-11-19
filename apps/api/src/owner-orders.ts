@@ -13,11 +13,25 @@ export function ownerOrders(db:PrismaClient){
     if(!Number.isInteger(page)||page<1||page>100000){res.sendStatus(400);return;}
     const rows=await db.preorder.findMany({where:scope,orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*25,take:26});
     const offers=await db.offer.findMany({where:{batch:{zone:{pump:{farmId:'demo'}}}},orderBy:{batchId:'asc'},
-      select:{batchId:true,open:true,remainingKg:true,priceVnd:true}});
-    res.json({offers,orders:rows.slice(0,25),hasMore:rows.length>25});
+      select:{batchId:true,open:true,totalKg:true,remainingKg:true,priceVnd:true}});
+    res.json({offers:offers.map(o=>({...o,heldKg:o.totalKg-o.remainingKg})),orders:rows.slice(0,25),hasMore:rows.length>25});
   });
   router.put('/offers/:code',express.json({limit:'1kb'}),async(req,res)=>{
-    const {priceVnd,open}=req.body??{};
+    const {priceVnd,open,totalKg}=req.body??{};
+    if(totalKg!==undefined){
+      if(!Number.isInteger(totalKg)||totalKg<0||totalKg>2147483647||open!==undefined||priceVnd!==undefined){res.sendStatus(400);return;}
+      const status=await db.$transaction(async tx=>{
+        const [offer]=await tx.$queryRaw<{totalKg:number;remainingKg:number}[]>`SELECT o."totalKg",o."remainingKg" FROM "Offer" o
+          JOIN "Batch" b ON b.id=o."batchId" JOIN "Zone" z ON z.id=b."zoneId" JOIN "Pump" p ON p.id=z."pumpId"
+          WHERE o."batchId"=${req.params.code} AND p."farmId"='demo' FOR UPDATE OF o`;
+        if(!offer)return 404;
+        const held=offer.totalKg-offer.remainingKg;
+        if(totalKg<held)return 409;
+        await tx.offer.update({where:{batchId:req.params.code},data:{totalKg,remainingKg:totalKg-held}});
+        return 204;
+      });
+      res.sendStatus(status);return;
+    }
     const data=typeof open==='boolean' && priceVnd===undefined?{open}:
       open===undefined && Number.isInteger(priceVnd) && priceVnd>0 && priceVnd<=2147483647?{priceVnd}:null;
     if(!data){res.sendStatus(400);return;}

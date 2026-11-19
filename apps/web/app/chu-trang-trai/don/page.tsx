@@ -4,15 +4,15 @@ type Order={id:string;kg:number;batchId:string;priceVnd:number;status:'PENDING'|
 const label={PENDING:'Chờ xác nhận',CONFIRMED:'Đã xác nhận',CANCELLED:'Đã hủy'};
 export default function Orders(){
  const [key,K]=useState(''),[rows,R]=useState<Order[]|null>(null),[page,P]=useState(1),[more,M]=useState(false),[msg,S]=useState(''),[busy,B]=useState(false);
- const [offers,O]=useState<{batchId:string;open:boolean;priceVnd:number;remainingKg:number}[]>([]);
- async function load(n:number,id?:string,action?:string,offer?:{batchId:string;open?:boolean;priceVnd?:number}){
+ const [offers,O]=useState<{batchId:string;open:boolean;priceVnd:number;remainingKg:number;totalKg:number;heldKg:number}[]>([]);
+ async function load(n:number,id?:string,action?:string,offer?:{batchId:string;open?:boolean;priceVnd?:number;totalKg?:number}){
    B(true);S('');
    const headers={authorization:'Bearer '+key};
    try{
      if(offer){
        const changed=await fetch('/api/owner-orders?code='+encodeURIComponent(offer.batchId),{method:'PUT',
-         headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({open:offer.open,priceVnd:offer.priceVnd})});
-       if(!changed.ok)throw Error('Không cập nhật được trạng thái lô.');
+         headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({open:offer.open,priceVnd:offer.priceVnd,totalKg:offer.totalKg})});
+       if(!changed.ok)throw Error(changed.status===409?'Hạn mức thấp hơn số kg hiện đã giữ. Hãy tải lại danh sách.':'Không cập nhật được lô.');
      }
      if(id){
        const r=await fetch('/api/owner-orders?id='+id+'&action='+action,{method:'POST',headers});
@@ -20,14 +20,17 @@ export default function Orders(){
      }
      const r=await fetch('/api/owner-orders?page='+n,{headers,cache:'no-store'});
      if(!r.ok)throw Error(r.status===401?'Mã truy cập không hợp lệ.':'Không tải được danh sách.');
-     const data=await r.json();O(data.offers);R(data.orders);M(data.hasMore);P(n);if(id)S('Đã cập nhật đơn.');if(offer?.priceVnd)S('Đã cập nhật giá cho đơn mới.');
+     const data=await r.json();O(data.offers);R(data.orders);M(data.hasMore);P(n);if(id)S('Đã cập nhật đơn.');if(offer?.totalKg!==undefined)S('Đã cập nhật hạn mức của lô.');if(offer?.priceVnd)S('Đã cập nhật giá cho đơn mới.');
    }catch(e){S(e instanceof Error?e.message:'Không kết nối được.');}finally{B(false);}
  }
  return <main><h1>Đơn đặt trước của trang trại</h1><form onSubmit={e=>{e.preventDefault();void load(1);}}>
  <label>Mã truy cập chủ trang trại <input type="password" required disabled={busy} value={key} onChange={e=>{K(e.target.value);R(null);}}/></label>
  <button disabled={busy}>Xem danh sách</button></form><p role="status">{msg}</p>
- {rows && <><h2>Nhận đặt trước theo lô</h2>{offers.map(o=><section key={o.batchId}>{o.batchId} · Còn {o.remainingKg} kg · {o.open?'Đang nhận đơn':'Đã tạm dừng'}{' '}
+ {rows && <><h2>Nhận đặt trước theo lô</h2>{offers.map(o=><section key={o.batchId}>{o.batchId} · Tổng hạn mức: {o.totalKg} kg · Đã giữ: {o.heldKg} kg · Còn bán: {o.remainingKg} kg · {o.open?'Đang nhận đơn':'Đã tạm dừng'}{' '}
  <button disabled={busy} onClick={()=>load(page,undefined,undefined,{batchId:o.batchId,open:!o.open})}>{o.open?'Tạm dừng nhận đơn':'Mở lại'}</button>
+ <form key={'cap'+o.totalKg} onSubmit={e=>{e.preventDefault();void load(page,undefined,undefined,{batchId:o.batchId,totalKg:Number(new FormData(e.currentTarget).get('capacity'))});}}>
+ <label>Tổng hạn mức mới (kg) <input name="capacity" type="number" min={o.heldKg} max={2147483647} step={1} defaultValue={o.totalKg} required disabled={busy}/></label>
+ <button disabled={busy}>Lưu hạn mức</button></form>
  <form key={o.priceVnd} onSubmit={e=>{e.preventDefault();void load(page,undefined,undefined,{batchId:o.batchId,priceVnd:Number(new FormData(e.currentTarget).get('price'))});}}>
  <label>Giá bán (₫/kg) <input name="price" type="number" required min={1} max={2147483647} step={1} defaultValue={o.priceVnd} disabled={busy}/></label>
  <button disabled={busy}>Lưu giá</button></form></section>)}<h2>Danh sách đơn</h2><p>Trang {page} · {rows.length} đơn</p>{rows.map(o=><section key={o.id}><h2>Lô {o.batchId}</h2>
