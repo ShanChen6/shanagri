@@ -16,13 +16,16 @@ export function ownerOrders(db:PrismaClient){
   router.get('/',async(req,res)=>{
     const page=Number(req.query.page??1);
     if(!Number.isInteger(page)||page<1||page>100000){res.sendStatus(400);return;}
-    const rows=await db.preorder.findMany({where:{...scope,...(typeof req.query.batch==='string'&&req.query.batch?{batchId:req.query.batch,status:{in:['PENDING','CONFIRMED','HOLD']}}:{})},orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*25,take:26,select:{id:true,batchId:true,kg:true,priceVnd:true,status:true,cancelRequested:true,cancelDecision:true,createdAt:true}});
+    const waiting=req.query.review==='pending';
+    const pendingScope={...scope,cancelRequested:true,...(typeof req.query.batch==='string'&&req.query.batch?{batchId:req.query.batch}:{})};
+    const pendingCount=await db.preorder.count({where:pendingScope});
+    const rows=await db.preorder.findMany({where:waiting?pendingScope:{...scope,...(typeof req.query.batch==='string'&&req.query.batch?{batchId:req.query.batch,status:{in:['PENDING','CONFIRMED','HOLD']}}:{})},orderBy:[{createdAt:'desc'},{id:'desc'}],skip:(page-1)*25,take:26,select:{id:true,batchId:true,kg:true,priceVnd:true,status:true,cancelRequested:true,cancelDecision:true,createdAt:true}});
     const offers=await db.offer.findMany({where:{batch:{zone:{pump:{farmId:'demo'}}}},orderBy:{batchId:'asc'},
       select:{actualKg:true,harvestDate:true,batchId:true,open:true,closesAt:true,totalKg:true,remainingKg:true,priceVnd:true}});
     const zones=await db.zone.findMany({where:{pump:{farmId:'demo'}},select:{id:true,name:true},orderBy:{name:'asc'}});
     const drafts=await db.batch.findMany({where:{published:false,zone:{pump:{farmId:'demo'}}},orderBy:{startDate:'desc'},
       select:{id:true,name:true,zoneId:true,startDate:true,expectedHarvestDate:true}});
-    res.json({zones,drafts,offers:offers.map(o=>({...o,heldKg:o.totalKg-o.remainingKg})),orders:rows.slice(0,25),hasMore:rows.length>25});
+    res.json({pendingCount,zones,drafts,offers:offers.map(o=>({...o,heldKg:o.totalKg-o.remainingKg})),orders:rows.slice(0,25),hasMore:rows.length>25});
   });
   router.get('/offers/:code/allocation-preview',async(req,res)=>{
     const offer=await db.offer.findFirst({where:{batchId:req.params.code,batch:{zone:{pump:{farmId:'demo'}}}},

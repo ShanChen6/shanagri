@@ -85,10 +85,14 @@ try{
  assert.equal(+(await db.preorder.findUnique({where:{id:verified.id}})).createdAt,+original.createdAt);
  assert.equal((await admin('/'+verified.id+'/confirm','POST')).status,204);
  assert.equal((await call('public/hold/cancel','POST',{},bearer)).status,202);
+ const waiting=()=>admin('?review=pending').then(read);
+ const beforeReview=await waiting();assert.equal(beforeReview.pendingCount,1);assert.deepEqual(beforeReview.orders.map(o=>o.id),[verified.id]);
+ assert.equal((await read(await admin('?review=pending&batch=other'))).pendingCount,0);
  assert.equal(await getStock(),initial-2);assert.equal((await admin('/'+verified.id+'/approve-cancel','POST')).status,204);assert.equal(await getStock(),initial);
  assert.equal((await admin('/'+verified.id+'/approve-cancel','POST')).status,204);
  assert.equal((await admin('/'+verified.id+'/decline-cancel','POST')).status,409);
  assert.equal(await getStock(),initial);
+ assert.equal((await waiting()).pendingCount,0);
  const declined=request(3);assert.equal((await buy(declined)).status,201);
  const otp2=await(await fetch('http://127.0.0.1:4599/'+declined.phone.replace(/^0/,'+84'),{headers:{authorization:'Bearer '+process.env.SMS_WEBHOOK_TOKEN}})).text();
  const secret='Bearer '+declined.lookupToken;

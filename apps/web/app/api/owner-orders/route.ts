@@ -1,7 +1,7 @@
 async function proxy(req:Request){
   const url=new URL(req.url);
   const base=(process.env.API_BASE_URL??'http://localhost:4000')+'/api/farms/demo/owner/orders';
-  let suffix='?page='+encodeURIComponent(url.searchParams.get('page')??'1')+'&batch='+encodeURIComponent(url.searchParams.get('batch')??'');
+  let suffix='?page='+encodeURIComponent(url.searchParams.get('page')??'1')+'&batch='+encodeURIComponent(url.searchParams.get('batch')??'')+(url.searchParams.get('review')==='pending'?'&review=pending':'');
   if(req.method==='POST'){
     const id=url.searchParams.get('id')??'',action=url.searchParams.get('action');
     if(!/^[a-f\d-]{36}$/i.test(id)||!['confirm','cancel','approve-cancel','decline-cancel'].includes(action??''))return new Response(null,{status:400});
