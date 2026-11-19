@@ -165,8 +165,10 @@ Sản lượng thực thu được đề xuất cho các đơn đã xác nhận 
 đơn hủy bị loại. Bản xem trước không ghi dữ liệu; chọn cập nhật để tính lại.
 
 ### Chốt phân bổ
-Xử lý hết đơn đang chờ trước khi chốt. Chủ trại chỉnh số kg nguyên trong
-khoảng 0–số đã đặt cho từng đơn xác nhận; tổng không vượt thực thu. Bản xem
+Xử lý hết đơn đang chờ trước khi chốt. Thứ tự đặt quyết định phân bổ:
+đơn trước nhận đủ rồi mới tới đơn sau. Với 65 kg cho ba đơn 30, 25, 25 kg,
+kết quả bắt buộc là 30, 25, 10 kg. Chủ trại không thể sửa số kg từng đơn.
+Bản xem
 trước cũ bị từ chối nếu tập đơn hoặc trạng thái thay đổi. Chốt một lần;
 sau đó không thể hủy đơn thuộc phương án. Liên kết tra cứu hiển thị cả số kg
 đặt ban đầu và số kg được phân bổ, kể cả khi phân bổ 0 kg.

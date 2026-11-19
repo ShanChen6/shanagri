@@ -45,11 +45,10 @@ with sync_playwright() as pw:
     # Select the intended lot even if several harvested lots exist.
     panel = owner.locator("section").filter(has_text=code).filter(has=owner.get_by_text("Xem đơn đang giữ", exact=True))
     panel.get_by_role("button", name="Xem trước phân bổ").click()
-    for i, kg in enumerate([25, 20, 20]):
-        panel.get_by_role("spinbutton").nth(i).fill(str(kg))
+    expect(panel.get_by_role("spinbutton")).to_have_count(0)
     panel.get_by_role("button", name="Chốt phân bổ").click()
     expect(panel.get_by_text("Phân bổ đã chốt", exact=False)).to_be_visible()
-    for buyer, ordered, assigned in zip(buyers,[30,25,25],[25,20,20]):
+    for buyer, ordered, assigned in zip(buyers,[30,25,25],[30,25,10]):
         buyer.reload()
         expect(buyer.get_by_text(f"Đã đặt: {ordered} kg · Được phân bổ: {assigned} kg")).to_be_visible()
     browser.close()

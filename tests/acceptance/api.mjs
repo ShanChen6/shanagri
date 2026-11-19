@@ -32,7 +32,9 @@ assert.ok(!(await market()).some(x=>x.code===code));
 assert.equal((await call(lot+'/preorders','POST',{id:randomUUID(),kg:1})).status,409);
 const plan=await read(await admin(offer+'/allocation-preview'));
 assert.deepEqual(plan.confirmed.map(x=>x.proposedKg),[30,25,10]);
-const assigned=[25,20,20],body={version:plan.version,items:orders.map((o,i)=>({id:o.id,kg:assigned[i]}))};
+const invalidSplit={version:plan.version,items:orders.map((o,i)=>({id:o.id,kg:[25,20,20][i]}))};
+assert.equal((await admin(offer+'/allocation','POST',invalidSplit)).status,400);
+const assigned=[30,25,10],body={version:plan.version,items:orders.map((o,i)=>({id:o.id,kg:assigned[i]}))};
 const finish=()=>admin(offer+'/allocation','POST',body);
 assert.deepEqual((await Promise.all([finish(),finish()])).map(r=>r.status).sort(),[204,409]);
 for(const [i,o] of orders.entries()){

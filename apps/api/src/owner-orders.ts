@@ -54,9 +54,15 @@ export function ownerOrders(db:PrismaClient){
       const orders=await tx.preorder.findMany({where:{batchId:code,status:{in:['CONFIRMED','PENDING']}},orderBy:[{createdAt:'asc'},{id:'asc'}]});
       if(version(code,o.actualKg,orders)!==seen||orders.some(x=>x.status==='PENDING'))return 409;
       const byId=new Map<string,number>(items.map(x=>[x.id,x.kg]));
-      if(!orders.length||items.length!==orders.length||byId.size!==orders.length||
-        orders.some(x=>!byId.has(x.id)||byId.get(x.id)!>x.kg)||items.reduce((n,x)=>n+x.kg,0)>o.actualKg)return 400;
-      for(const x of orders)await tx.preorder.update({where:{id:x.id},data:{allocatedKg:byId.get(x.id)}});
+      if(!orders.length||items.length!==orders.length||byId.size!==orders.length)return 400;
+      let available=o.actualKg;
+      const fifo=orders.map(order=>{
+        const kg=Math.min(available,order.kg);
+        available-=kg;
+        return {id:order.id,kg};
+      });
+      if(fifo.some(order=>byId.get(order.id)!==order.kg))return 400;
+      for(const order of fifo)await tx.preorder.update({where:{id:order.id},data:{allocatedKg:order.kg}});
       await tx.offer.update({where:{batchId:code},data:{allocatedAt:new Date()}});
       return 204;
     });
